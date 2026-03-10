@@ -1,0 +1,7 @@
+Dia 1 - 10/03/2026
+É hora de definir o risc-v, vou começar pelo hardware e depois vou para as instruções e então volto no hardware pra definir o encapsulamento dos métodos.
+O RV32I tem 32 registradores do tipo i32, sendo o x0 sempre 0
+Além dos 32 registradores, também temos o PC (Program Counter), responsável por apontar para a próxima instrução na memória, o PC também é i32.
+A memória não é especificada, pode ter qualquer tamanho porque não faz parte da ISA, por hora só dá pra saber que ela é um array de u8
+Acho que deve ter como por o tamanho da memória devendo ser passado por flag de execução e tendo um valor pequeno por default tipo 64Kb...
+Por hora, a struct VM está assim: struct VM { x: [u8; 32], pc: u32, ram: [u8; 65536] } com estados mais limitados pelos tipos naturalmente.
