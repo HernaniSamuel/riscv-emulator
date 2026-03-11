@@ -5,3 +5,35 @@ Além dos 32 registradores, também temos o PC (Program Counter), responsável p
 A memória não é especificada, pode ter qualquer tamanho porque não faz parte da ISA, por hora só dá pra saber que ela é um array de u8
 Acho que deve ter como por o tamanho da memória devendo ser passado por flag de execução e tendo um valor pequeno por default tipo 64Kb...
 Por hora, a struct VM está assim: struct VM { x: [u8; 32], pc: u32, ram: [u8; 65536] } com estados mais limitados pelos tipos naturalmente.
+O próximo passo é ter uma visão geral das instruções para então ver o passo a passo do fetch, decode e execute de cada uma delas em cada formato.
+
+Dia 2 - 11/03/2026
+As instruções tem tipos base e 32 bits de tamanho, o que significa incremento do pc em 4. Os tipos são R, I, S, B, U e J.
+Pelo que entendi, o opcode são sempre os 7 bits mais baixos, fazendo com que o decode seja opcode = instr & 0x7F.
+O fetch lê quatro bytes na memória começando no endereço do pc e aí vai pc + 1, pc + 2 e pc + 3 e então pc += 4.
+O decode começa olhando os 7 bits mais baixos, que representam o opcode. opcode = instr & 0x7F.
+Então o decode extrai os campos padrão sempre da mesma forma:
+rd     = (instr >> 7)  & 0x1F
+funct3 = (instr >> 12) & 0x7
+rs1    = (instr >> 15) & 0x1F
+rs2    = (instr >> 20) & 0x1F
+funct7 = (instr >> 25) & 0x7F
+
+A tabela abaixo informa o tipo da instrução
+| opcode  | formato  |
+| ------- | -------- |
+| 0110011 | R        |
+| 0010011 | I        |
+| 0000011 | I (load) |
+| 0100011 | S        |
+| 1100011 | B        |
+| 0110111 | U        |
+| 0010111 | U        |
+| 1101111 | J        |
+| 1100111 | I (jalr) |
+
+Então, ocorre uma sequencia de match, começando com match opcode, depois match das functs 
+e finalmente o retorno das operações para o execute, transformando 4 bytes em um Instr::Add por exemplo.
+Depois tenho que ver como funcionam os immediates de cada tipo, eles parecem ser meio chatos de extrair.
+
+Acredito que agora já dê para formalizar essa síntese em um riscv.md que guiará passo a passo da implementação em Rust.
