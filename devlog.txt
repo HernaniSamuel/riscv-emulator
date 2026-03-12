@@ -37,3 +37,17 @@ e finalmente o retorno das operações para o execute, transformando 4 bytes em 
 Depois tenho que ver como funcionam os immediates de cada tipo, eles parecem ser meio chatos de extrair.
 
 Acredito que agora já dê para formalizar essa síntese em um riscv.md que guiará passo a passo da implementação em Rust.
+
+Day 3 - 12/03/2026 (dd/mm/yyyy)
+Today is time to start using my English writting skills to practice it, if I don't start forcing myself English using, it'll never improve...
+Today is also time to make my own Risc-v RV32I implementation guide to avoid being too dependant of AI to explain the requirements
+I'll start with the virtual hardware and the fetch method, tomorrow I'll focus on decoding and listing all instructions
+We should start smooth and slow... slow and steady to have constance! 
+I made the readme in notion, I don't know if this content will really make part of readme or if I'll place it in another .md document but for now is it.
+Tomorrow, I'll make the definitions of each VM Method, explaining the responsabilities and step-by-step of how it should work. It'll make test cases easier.
+I'm thinking about dividing it in three structs: RV, CPU and VM were RV contains CPU that contains VM or something in this way... 
+RV is the main struct, it'll worry about initializing and running everything;
+CPU will worry about the logic evolving instructions and fetch-decode-execute cycle and how to use the VM methods to execute all instructions correctly;
+VM is the Virtual Machine (obviously), so it's also a state machine that doesn't know anything about the state changing logic, it just worry about states
+and the safe state transition. VM should make impossible to access an invalid state and should carry about the correct state transition.
+Maybe it'll have an enum Error that contains CPUError and VMError for better error diagnostic, I'll see it soon...
