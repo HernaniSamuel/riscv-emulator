@@ -51,3 +51,11 @@ CPU will worry about the logic evolving instructions and fetch-decode-execute cy
 VM is the Virtual Machine (obviously), so it's also a state machine that doesn't know anything about the state changing logic, it just worry about states
 and the safe state transition. VM should make impossible to access an invalid state and should carry about the correct state transition.
 Maybe it'll have an enum Error that contains CPUError and VMError for better error diagnostic, I'll see it soon...
+
+Day 4 - 13/03/2026
+I finished the VM specifications by describing each method of it. The next step is to describe the struct CPU and how its methods should work.
+I'm using Notion to make the README.md because it's easier than writting markdown by hand. The Notion AI feedback is pretty useful to learn English writing.
+The way I'm making this will make the code implementation practically mechanic, I'll just translate the README.md to Rust code and assert it's working
+in the way as it should work.
+I'll have to describe the Error enum and the errors inside each enum, but it'll be one of the last things to cover all cases...
+Compile flags also have to be covered too. 
