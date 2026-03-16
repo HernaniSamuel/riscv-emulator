@@ -58,4 +58,9 @@ I'm using Notion to make the README.md because it's easier than writting markdow
 The way I'm making this will make the code implementation practically mechanic, I'll just translate the README.md to Rust code and assert it's working
 in the way as it should work.
 I'll have to describe the Error enum and the errors inside each enum, but it'll be one of the last things to cover all cases...
-Compile flags also have to be covered too. 
+Compile flags also have to be covered too.
+
+Day 5 - 16/03/2026
+I made the CPU attributes and general overview today. Making everything in a .md before making the code proved to be a great decision because I can see 
+everything before start thinking in code and I can plan everything carefully.
+Tomorrow I'll make the fetch method description.
