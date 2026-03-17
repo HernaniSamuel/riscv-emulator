@@ -27,14 +27,14 @@ impl VM {
     pub fn advance_pc(&mut self, offset: u32) -> Result<(), VMError> {...}
     pub fn set_pc(&mut self, offset: u32) -> Result<(), VMError> {...}
     
-    pub fn get_x(&self, index: usize) -> Result<u32, VMError> {..}
+    pub fn get_x(&self, index: usize) -> Result<u32, VMError> {...}
     pub fn set_x(&mut self, index: usize, value: u32) -> Result<(), VMError> {...}
 }
 ```
 
-These methods are important for good encapsulation practices. They can be a bit verbose, but they are safe.
+These methods are important for good encapsulation practices. These methods enforce memory and register safety at the cost of some verbosity.
 
-The list of VM methods and how each one should work:
+The expected behavior of each VM method is described below.
 
 - **new**: Creates a **new VM instance**, loads the ELF into memory, and returns `Self`. It can **fail** if the **ELF** is **larger** than the **RAM length**, in which case it propagates the `VMError` described in the **RAM methods** below.
 - **get_ram**: If `ram.get(index)` returns `Some(&u8)`, it returns `Ok(u8)`. Otherwise, it returns a `VMError` indicating an attempt to access an **invalid memory address**.
@@ -73,9 +73,24 @@ impl CPU {
 	pub fn get_exit_code(&self) -> i32 {...}
 	pub fn set_exit_code(&mut self, value: i32) -> () {...}
 	
-	pub fn is_running(&self) -> bool
+	pub fn is_running(&self) -> bool {...}
 	pub fn set_running(&mut self, value: bool) -> () {...}
 }
 ```
 
 This is the list of the CPU methods and how each one should work:
+
+- **new**: Creates a new VM instance and assigns it to the CPU struct. Returns `Self` or propagates the `VMError`.
+- **fetch**: Constructs the opcode using bitwise operations to concatenate 4 bytes into a `u32` opcode:
+    1. Use `self.vm.get_ram` with the indexes `pc`, `pc + 1`, `pc + 2`, and `pc + 3`. Then, store the bytes in 4 `u8` variables.
+    2. Use a bit shift operation to combine the four bytes into a `u32` opcode value:
+    
+    ```rust
+    let opcode = (byte1 as u32)
+               | (byte2 as u32) << 8
+               | (byte3 as u32) << 16
+               | (byte4 as u32) << 24;
+    ```
+    
+
+- **decode:**

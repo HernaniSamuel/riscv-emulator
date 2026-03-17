@@ -64,3 +64,7 @@ Day 5 - 16/03/2026
 I made the CPU attributes and general overview today. Making everything in a .md before making the code proved to be a great decision because I can see 
 everything before start thinking in code and I can plan everything carefully.
 Tomorrow I'll make the fetch method description.
+
+Day 6 - 17/03/2026
+Everything feels heavier since I stopped drinking cafeine 17 days ago, I'm making everything 10 times slower but the quality hasn't been afected.
+Today I made the fetch method description and understood a bit about how bitwise works, it still a bit confuse but I'll learn it...
