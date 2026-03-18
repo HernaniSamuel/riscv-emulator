@@ -2,7 +2,7 @@
 
 ## The Virtual Machine (VM)
 
-The RV32I VM consists of the following components:
+The **RV32I VM** consists of the following components:
 
 - **Memory:** Represents **RAM** as an array of bytes (`u8`). Its **length** is defined by a **compile-time flag**. The **default** is `[u8; 65536]` (**64KB**).
 - **Program Counter (PC)**: Always **points** to the **next instruction** on **memory**. Type `u32`.
@@ -41,7 +41,7 @@ The expected behavior of each VM method is described below.
 - **set_ram**: If `ram.get_mut(index)` returns `None`, it returns a `VMError` indicating an attempt to access an **invalid memory address**. If it returns `Some(&u8)`, the value is **dereferenced** and updated to match the value provided in the **value** parameter.
 - **get_pc**: This method only returns the **current** PC value as a `u32`. It can’t return an error, and it exists only because the VM’s PC attribute **can’t be public**. Otherwise, it could be **modified freely** and get **out of control**.
 - **set_pc**: If the offset is greater than the memory length, it returns a `VMError` indicating that the PC is **out of bounds**. This may seem redundant since RAM already has a bounds checker, but it helps catch when the PC goes out of bounds and is useful for **debugging**.
-- **advance_pc**: If the function argument plus the current PC value is greater than the memory length minus 5 (to ensure all 4 bytes of the instruction fit within memory), it returns a `VMError` indicating that the PC is **out of bounds**. Otherwise, it sets the PC to the current value plus the provided offset.
+- **advance_pc**: If the function argument plus the current PC value is greater than the memory length minus 4 (to ensure all 4 bytes of the instruction fit within memory), it returns a `VMError` indicating that the PC is **out of bounds**. Otherwise, it sets the PC to the current value plus the provided offset.
 - **get_x**: If `x.get(index)` returns `Some(&u32)`, it returns `Ok(u32)`. Otherwise, it returns a `VMError` indicating an attempt to access an **invalid register address**.
 - **set_x:** If `x.get_mut(index)` returns `None`, it returns a `VMError` indicating an attempt to access an **invalid register address**. If it returns `Some(&u32)` and the **index is not zero**, the value is **dereferenced** and updated to match the value provided in the **value** parameter. If the **index** is **zero**, it **does not modify the register value** (since **x0 is always zero**).
 
@@ -81,16 +81,39 @@ impl CPU {
 This is the list of the CPU methods and how each one should work:
 
 - **new**: Creates a new VM instance and assigns it to the CPU struct. Returns `Self` or propagates the `VMError`.
-- **fetch**: Constructs the opcode using bitwise operations to concatenate 4 bytes into a `u32` opcode:
+- **fetch**: Constructs the instruction using bitwise operations to concatenate 4 bytes into a `u32` instruction:
     1. Use `self.vm.get_ram` with the indexes `pc`, `pc + 1`, `pc + 2`, and `pc + 3`. Then, store the bytes in 4 `u8` variables.
-    2. Use a bit shift operation to combine the four bytes into a `u32` opcode value:
+    2. Use a bit shift operation to combine the four bytes into a `u32` instruction value:
     
     ```rust
-    let opcode = (byte1 as u32)
+    let instruction = (byte1 as u32)
                | (byte2 as u32) << 8
                | (byte3 as u32) << 16
                | (byte4 as u32) << 24;
     ```
     
 
-- **decode:**
+- **decode:** All RV32I instructions have the same length of 32 bits, changing only the format. By decoding the instruction, we want to extract some information values to discover what the machine should do. The values are:
+    - **opcode:** The **opcode** indicates the **format** of an instruction. The **seven lower bits** of an instruction **contains the opcode**.
+    - **Destination Register (rd)**: As the name suggests, this is the **register** where the **result** of the operation **will be stored**.
+    - **Source Register 1 (rs1):** Source register 1 provides the **first input value** to the **ALU (Arithmetic Logic Unit)**.
+    - **Source Register 2 (rs2)**: Source register 2 provides the **second value** to the **ALU**.
+    - **Function 3 (func3)**: func3 is a **three-bit field** that helps the **CPU** identify the **instruction format** (R, I, S, B, U or J).
+    - **Function 7 (func7)**: funct7 is a **7-bit field** that helps the **processor** determine the exact operation to perform in **R-type** instructions.
+    - **Immediate value (imm):** imm is a **constant value** that is passed by an **instruction**. It is useful for **avoiding unnecessary register usage**.
+    
+    These values can be extracted using **bitmasks**. It is possible to extract all the values described (except imm) using this procedure.
+    
+    ```rust
+    fn get_bits(value: u32, shift: u8, mask: u8) -> u8 {
+        ((value >> shift) & mask as u32) as u8
+    }
+    
+    let opcode: u8 = (instruction & 0x7F) as u8;
+    let rd: u8     = get_bits(instruction, 7, 0x1F);
+    let rs1: u8    = get_bits(instruction, 15, 0x1F);
+    let rs2: u8    = get_bits(instruction, 20, 0x1F);
+    let funct3: u8 = get_bits(instruction, 12, 0x7);
+    ```
+    
+    The **decoder** matches the **opcode** to determine the **instruction type**, then uses **funct3** and **funct7** to identify the **exact instruction**.

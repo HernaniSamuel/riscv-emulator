@@ -68,3 +68,8 @@ Tomorrow I'll make the fetch method description.
 Day 6 - 17/03/2026
 Everything feels heavier since I stopped drinking cafeine 17 days ago, I'm making everything 10 times slower but the quality hasn't been afected.
 Today I made the fetch method description and understood a bit about how bitwise works, it still a bit confuse but I'll learn it...
+
+Day 7 - 18/03/2026
+Today I made the first part of the decode method. I learned how to extract all necessary fields of the instruction to understand what the CPU should do.
+Tomorrow I'll describe the pattern matching using opcode, funct3 and funct7 to identify which instruction in the Instruction enum it should return to the execute method.
+Tomorrow I'll finally describe the instructions and the enum of the instructions, this will be the heart of all this documentation part!
