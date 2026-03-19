@@ -15,6 +15,7 @@ pub struct VM {
     ram: [u8; x * 1024], // x = 64 by default
     x: [u32; 32],
     pc: u32,
+    // CSR here later...
 }
 
 impl VM {
@@ -29,6 +30,8 @@ impl VM {
     
     pub fn get_x(&self, index: usize) -> Result<u32, VMError> {...}
     pub fn set_x(&mut self, index: usize, value: u32) -> Result<(), VMError> {...}
+    
+    // CSR getters and setters
 }
 ```
 
@@ -68,6 +71,7 @@ impl CPU {
 	pub fn step(&mut self) -> Result<(), GeneralError> {...}
 	fn fetch(&mut self) -> Result<u32, VMError> {...}
 	fn decode(&self, opcode: u32) -> Result<Instruction, GeneralError> {...}
+	// decode method has some utility functions
 	fn execute(&mut self, instruction: Instruction) -> Result<(), VMError> {...}
 	
 	pub fn get_exit_code(&self) -> i32 {...}
@@ -81,6 +85,7 @@ impl CPU {
 This is the list of the CPU methods and how each one should work:
 
 - **new**: Creates a new VM instance and assigns it to the CPU struct. Returns `Self` or propagates the `VMError`.
+
 - **fetch**: Constructs the instruction using bitwise operations to concatenate 4 bytes into a `u32` instruction:
     1. Use `self.vm.get_ram` with the indexes `pc`, `pc + 1`, `pc + 2`, and `pc + 3`. Then, store the bytes in 4 `u8` variables.
     2. Use a bit shift operation to combine the four bytes into a `u32` instruction value:
@@ -92,9 +97,10 @@ This is the list of the CPU methods and how each one should work:
                | (byte4 as u32) << 24;
     ```
     
-
+    1. Call `self.vm.advance_pc(4)` so the PC always points to the next instruction after fetching.
+    
 - **decode:** All RV32I instructions have the same length of 32 bits, changing only the format. By decoding the instruction, we want to extract some information values to discover what the machine should do. The values are:
-    - **opcode:** The **opcode** indicates the **format** of an instruction. The **seven lower bits** of an instruction **contains the opcode**.
+    - **opcode:** The **opcode** indicates the **format** of an **instruction**. The **seven lower bits** of an instruction **contains the opcode**.
     - **Destination Register (rd)**: As the name suggests, this is the **register** where the **result** of the operation **will be stored**.
     - **Source Register 1 (rs1):** Source register 1 provides the **first input value** to the **ALU (Arithmetic Logic Unit)**.
     - **Source Register 2 (rs2)**: Source register 2 provides the **second value** to the **ALU**.
@@ -105,15 +111,163 @@ This is the list of the CPU methods and how each one should work:
     These values can be extracted using **bitmasks**. It is possible to extract all the values described (except imm) using this procedure.
     
     ```rust
-    fn get_bits(value: u32, shift: u8, mask: u8) -> u8 {
-        ((value >> shift) & mask as u32) as u8
+    // Utility function of the decode method
+    fn get_bits(value: u32, shift: u8, mask: u8) -> u32 {
+        ((value >> shift) & mask as u32)
     }
     
-    let opcode: u8 = (instruction & 0x7F) as u8;
-    let rd: u8     = get_bits(instruction, 7, 0x1F);
-    let rs1: u8    = get_bits(instruction, 15, 0x1F);
-    let rs2: u8    = get_bits(instruction, 20, 0x1F);
-    let funct3: u8 = get_bits(instruction, 12, 0x7);
+    // Utility function of the decode method
+    fn sign_ext(value: u32, bits: u32) -> i32 {
+        let shift = 32 - bits;
+        ((value << shift) as i32) >> shift
+    }
+    
+    let opcode: u32 = (instruction & 0x7F) as u32;
+    let rd: u32     = get_bits(instruction, 7, 0x1F);
+    let rs1: u32    = get_bits(instruction, 15, 0x1F);
+    let rs2: u32    = get_bits(instruction, 20, 0x1F);
+    let funct3: u32 = get_bits(instruction, 12, 0x7);
+    ```
+    
+    The imm field bit positions change according to the instruction type, so it should be extracted according to the instruction type as well. This can be done using the following steps.
+    
+    ```rust
+    let imm_i = sign_ext(instruction >> 20, 12);
+    
+    let imm_s = sign_ext(
+        (get_bits(instruction, 25, 0x7F) << 5)
+        | get_bits(instruction, 7, 0x1F),
+        12,
+    );
+    
+    let imm_b = sign_ext(
+        (get_bits(instruction, 31, 0x1) << 12)
+        | (get_bits(instruction, 7,  0x1) << 11)
+        | (get_bits(instruction, 25, 0x3F) << 5)
+        | (get_bits(instruction, 8,  0xF) << 1),
+        13,
+    );
+    
+    let imm_u = (instruction & 0xFFFFF000) as i32;
+    
+    let imm_j = sign_ext(
+        (get_bits(instruction, 31, 0x1)  << 20)
+        | (get_bits(instruction, 12, 0xFF) << 12)
+        | (get_bits(instruction, 20, 0x1)  << 11)
+        | (get_bits(instruction, 21, 0x3FF) << 1),
+        21,
+    );
+    
+    let shamt = get_bits(instruction, 20, 0x1F) as u8;
     ```
     
     The **decoder** matches the **opcode** to determine the **instruction type**, then uses **funct3** and **funct7** to identify the **exact instruction**.
+    
+    ```rust
+    match opcode {
+        // ================= R =================
+        0b0110011 => match (funct3, funct7) {
+            (0x0, 0x00) => Instr::Add  { rd, rs1, rs2 },
+            (0x0, 0x20) => Instr::Sub  { rd, rs1, rs2 },
+            (0x1, 0x00) => Instr::Sll  { rd, rs1, rs2 },
+            (0x2, 0x00) => Instr::Slt  { rd, rs1, rs2 },
+            (0x3, 0x00) => Instr::Sltu { rd, rs1, rs2 },
+            (0x4, 0x00) => Instr::Xor  { rd, rs1, rs2 },
+            (0x5, 0x00) => Instr::Srl  { rd, rs1, rs2 },
+            (0x5, 0x20) => Instr::Sra  { rd, rs1, rs2 },
+            (0x6, 0x00) => Instr::Or   { rd, rs1, rs2 },
+            (0x7, 0x00) => Instr::And  { rd, rs1, rs2 },
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= I (ALU) =================
+        0b0010011 => match funct3 {
+            0x0 => Instr::Addi  { rd, rs1, imm: imm_i },
+            0x2 => Instr::Slti  { rd, rs1, imm: imm_i },
+            0x3 => Instr::Sltiu { rd, rs1, imm: imm_i },
+            0x4 => Instr::Xori  { rd, rs1, imm: imm_i },
+            0x6 => Instr::Ori   { rd, rs1, imm: imm_i },
+            0x7 => Instr::Andi  { rd, rs1, imm: imm_i },
+    
+            0x1 => match funct7 {
+                0x00 => Instr::Slli { rd, rs1, shamt },
+                _ => Instr::Illegal(instruction),
+            },
+    
+            0x5 => match funct7 {
+                0x00 => Instr::Srli { rd, rs1, shamt },
+                0x20 => Instr::Srai { rd, rs1, shamt },
+                _ => Instr::Illegal(instruction),
+            },
+    
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= LOAD =================
+        0b0000011 => match funct3 {
+            0x0 => Instr::Lb  { rd, rs1, imm: imm_i },
+            0x1 => Instr::Lh  { rd, rs1, imm: imm_i },
+            0x2 => Instr::Lw  { rd, rs1, imm: imm_i },
+            0x4 => Instr::Lbu { rd, rs1, imm: imm_i },
+            0x5 => Instr::Lhu { rd, rs1, imm: imm_i },
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= STORE =================
+        0b0100011 => match funct3 {
+            0x0 => Instr::Sb { rs1, rs2, imm: imm_s },
+            0x1 => Instr::Sh { rs1, rs2, imm: imm_s },
+            0x2 => Instr::Sw { rs1, rs2, imm: imm_s },
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= BRANCH =================
+        0b1100011 => match funct3 {
+            0x0 => Instr::Beq  { rs1, rs2, imm: imm_b },
+            0x1 => Instr::Bne  { rs1, rs2, imm: imm_b },
+            0x4 => Instr::Blt  { rs1, rs2, imm: imm_b },
+            0x5 => Instr::Bge  { rs1, rs2, imm: imm_b },
+            0x6 => Instr::Bltu { rs1, rs2, imm: imm_b },
+            0x7 => Instr::Bgeu { rs1, rs2, imm: imm_b },
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= U =================
+        0b0110111 => Instr::Lui   { rd, imm: imm_u },
+        0b0010111 => Instr::Auipc { rd, imm: imm_u },
+    
+        // ================= J =================
+        0b1101111 => Instr::Jal  { rd, imm: imm_j },
+        0b1100111 => match funct3 {
+            0x0 => Instr::Jalr { rd, rs1, imm: imm_i },
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= FENCE =================
+        0b0001111 => match funct3 {
+            0x0 => Instr::Fence,
+            0x1 => Instr::FenceI,
+            _ => Instr::Illegal(instruction),
+        },
+    
+        // ================= SYSTEM =================
+        0b1110011 => match funct3 {
+            0x0 => match imm_i {
+                0 => Instr::Ecall,
+                1 => Instr::Ebreak,
+                _ => Instr::Illegal(instruction),
+            },
+    
+            0x1 => Instr::Csrrw  { rd, rs1, csr },
+            0x2 => Instr::Csrrs  { rd, rs1, csr },
+            0x3 => Instr::Csrrc  { rd, rs1, csr },
+            0x5 => Instr::Csrrwi { rd, zimm: rs1, csr },
+            0x6 => Instr::Csrrsi { rd, zimm: rs1, csr },
+            0x7 => Instr::Csrrci { rd, zimm: rs1, csr },
+    
+            _ => Instr::Illegal(instruction),
+        },
+    
+        _ => Instr::Illegal(instruction),
+    }
+    ```

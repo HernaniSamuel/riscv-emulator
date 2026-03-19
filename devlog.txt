@@ -73,3 +73,14 @@ Day 7 - 18/03/2026
 Today I made the first part of the decode method. I learned how to extract all necessary fields of the instruction to understand what the CPU should do.
 Tomorrow I'll describe the pattern matching using opcode, funct3 and funct7 to identify which instruction in the Instruction enum it should return to the execute method.
 Tomorrow I'll finally describe the instructions and the enum of the instructions, this will be the heart of all this documentation part!
+
+Day 8 - 19/03/2026
+Yeah, I used AI in that match code, it's HUGE! But all instructions are there... 
+Tomorrow I'll make the Instruction enum in the execute method explanation. All state changes will be explained step-by-step, instruction by instruction!
+I guess I'll understand better that part when I'm implementing it in rust by myself. That's why I'm making this huge documentation first, to make my own code.
+I can see that I'll need a cpu folder with cpu.rs, decode.rs and execute.rs so it will not become a monster impossible to maintain and evolve.
+AI suggested to add CSR in the project to run FreeRTOS later, but it requires more registers in the VM... It shouldn't grow too mutch before I start coding
+but I think that only these registers are a good addition before start coding. 
+Ok, tomorrow I have to make 2 things:
+    1. Add CSR registers (and learn more about CSR...) in the VM with getters and setters
+    2. Add execute method and Instruction enum into the CPU
