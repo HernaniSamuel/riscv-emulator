@@ -84,3 +84,14 @@ but I think that only these registers are a good addition before start coding.
 Ok, tomorrow I have to make 2 things:
     1. Add CSR registers (and learn more about CSR...) in the VM with getters and setters
     2. Add execute method and Instruction enum into the CPU
+
+Day 9 - 20/03/2026
+I decided to make CSR instructions and registers in a next stage of the project.
+This part is only for RV32I core, I should maintain the scope small and closed to
+make a good code, then I can add more stuff like M, A, C, CSR etc...
+Later I'll check the .md consistence and compare with the oficial spec (I'm using AI to search fast...)
+The next step of this documentation is to add the GeneralError, VMError, CPUError and Instruction enums
+The SYSTEM instructions will be reviewed in a next stage of the project, I'll decide the best way 
+to implement Ecall and Ebreak instructions. FreeRTOS will run in my Risc-v emulator!
+I decided to make this project in stages (RV32I, M, A, C, Zicsr, Zifencei) to not get drowned in theory, 
+I need to strike a balance between planning and coding. Some of my projects have failed when I lost this balance.
