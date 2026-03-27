@@ -95,3 +95,19 @@ The SYSTEM instructions will be reviewed in a next stage of the project, I'll de
 to implement Ecall and Ebreak instructions. FreeRTOS will run in my Risc-v emulator!
 I decided to make this project in stages (RV32I, M, A, C, Zicsr, Zifencei) to not get drowned in theory, 
 I need to strike a balance between planning and coding. Some of my projects have failed when I lost this balance.
+
+Day 10 - 26/03/2026
+I paused this project to focus on structuring my portfolio, resume and job stuff, now I can make both at the same day!
+I'll start the code and adjust the .md after the code, I planned too mutch and it's time to implement it!
+Anyways, only the enums and riscv struct was remaining to plan, I can make it after the code. The general architecture is already done!
+Tomorrow I'll finally start the code with the VM struct!
+
+Day 11 - 27/03/2026
+Finally I'm starting the code! It will be faster and more organized than Chip-8 because I planned a lot of things before start coding.
+Today I'll make the VM struct and the ways to define how mutch ram it will have in execution.
+I decided to change vm ram to be a Vec<u8> instead of a [u8; N] because we should allow the user to decide the ram length in the compile flag
+I made the initial structure of the entire project, RiscV contains CPU that contains VM, it's like an onion, I don't know if it's correct but 
+apparently its maintainable and scalable.
+The next step is to make the VM load the elf file in memory.
+hmmm I discovered now that ELF files cannot be treated as a Vec<u8> because it has more information as pc entrypoint for example...
+I'll have to make the read_elf function as a method of the RiscV struct and then pass the processed elf_file to CPU and CPU passes it to VM
