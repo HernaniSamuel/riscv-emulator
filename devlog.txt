@@ -114,3 +114,11 @@ I'll have to make the read_elf function as a method of the RiscV struct and then
 Managing this ELF format is harder than I tought... ChatGPT is helping me with this part, I'll make the structs able to process ELF before start
 making other methods
 Next step is to make VM load the ELFImage in the memory and to make the CPU set PC initial position according to the ELFImage.
+
+Day 12 - 31/03/2026
+This ELF part is blocking the progress of the entire project! Once I forgot to plan it, I'm using Claude to solve this part for me
+then I can keep it going by myself.
+Actually I'm thinking about the use of AI in my projects... Is using AI to make the mechanic part (code) a problem when I understand everything?
+For example, I ask ChatGPT to implement my VM architecture method by method, then I read and review the code, ask for some adjusts and tests... 
+In my vision, it isn't dangerous for learning neither quality of the project. I'll test it to see if it works well, once its normal reviewing code
+more than writting code... I just should understand everything and should be able to explain all parts of my own project.
