@@ -122,3 +122,15 @@ Actually I'm thinking about the use of AI in my projects... Is using AI to make 
 For example, I ask ChatGPT to implement my VM architecture method by method, then I read and review the code, ask for some adjusts and tests... 
 In my vision, it isn't dangerous for learning neither quality of the project. I'll test it to see if it works well, once its normal reviewing code
 more than writting code... I just should understand everything and should be able to explain all parts of my own project.
+
+Day 13 - 01/04/2026
+Finally march have ended! I tought this month would take forever!
+Ok, Today is the day to warantee that VM is working correctly. AI made methods to read and write u16 for RV32C, but I removed because the scope
+for now is in RV32I, maybe I add the C extension in a next step... FreeRTOS doesn't need the C extension but maybe it is nice to have, I'll see...
+ChatGPT is really fast making code, specially useful for tests! I'm reading everything.
+Claude is useful for feedback, for example suggesting a better documentation with /// and feedback about my tests.
+I see that it has some pattern to make things in a way that looks like a franchise... A software fabric franchise...
+For example, always test some dimensions as impossible states giving errors, boundaries where it should keep working, normal use 
+The cargo commands are also the same too: test, fmt, clippy and doc
+The process of implementation consists in AI code generation, I review, tests, and then other AI reviews everything and provide a feedback
+Everything happening based on my knowledge and critical assessment. I became a sort of coordinator, boss, leader, I don't know exactly...
