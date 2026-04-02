@@ -178,11 +178,13 @@ mod tests {
 
         let vm = VM::new(image, 64).expect("VM should be created without error");
 
-        assert_eq!(
-            &vm.ram[vaddr as usize..vaddr as usize + 4],
-            &payload,
-            "segment bytes must be at the correct vaddr in RAM"
-        );
+        for (i, byte) in payload.iter().enumerate() {
+            assert_eq!(
+                vm.read_u8(vaddr + i as u32).unwrap(),
+                *byte,
+                "segment bytes must be at the correct vaddr in RAM"
+            );
+        }
     }
 
     #[test]
@@ -192,7 +194,11 @@ mod tests {
         let image = read_elf(&data).unwrap();
         let vm = VM::new(image, 64).unwrap();
 
-        assert_eq!(vm.pc, entry, "PC must start exactly at ELF entry point");
+        assert_eq!(
+            vm.get_pc(),
+            entry,
+            "PC must start exactly at ELF entry point"
+        );
     }
 
     #[test]
@@ -221,8 +227,15 @@ mod tests {
 
         let vm = VM::new(image, 64).unwrap();
 
-        assert_eq!(&vm.ram[0x1000..0x1004], &[0xAA; 4]);
-        assert_eq!(&vm.ram[0x1004..0x1010], &[0x00; 12]);
+        // payload
+        for i in 0..filesz {
+            assert_eq!(vm.read_u8(vaddr + i as u32).unwrap(), 0xAA);
+        }
+
+        // BSS zeroed
+        for i in filesz as u32..memsz {
+            assert_eq!(vm.read_u8(vaddr + i).unwrap(), 0x00);
+        }
     }
 
     #[test]

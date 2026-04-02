@@ -151,4 +151,18 @@ ChatGPT told me that I have to implement a trait called From... Let's see what I
 
 1. SOLVING THE XERROR COMPATIBILITY TO USE ERROR PROPAGATION WITHOUT PROBLEMS:
     - I noticed that only the struct CPU use the struct VM methods, so why not place VMError inside CPUError and exclude GeneralError?
-    
+    - Ok, I solved this problem! Now each layer only returns its own error type (VM returns VMError, CPU returns CPUError and Riscv returns RiscVError only)
+
+2. SOLVE THE RESPONSABILITY PROBLEM BY MAKING CPU ENSURE THAT PC IS ALWAYS IN A CORRECT POSITION WHILE VM ENSURES THE PC VALID POSITION:
+    - Let's start by making the CPU fetch method with this strong PC position verification. 
+    - Ah, I already have this method done... Ok, now is just make the tests to ensure it is working correctly...
+    - Ok, I have a problem: to test VM it only demands to create a dummy VM because VM doesn't have any dependencies, but CPU can only make VM::new()
+    and VM::new() demands an ELFImage... So I'll make a dummy elf image, then I'll have my dummy vm for my dummy CPU ;-;
+    Using AI in the code demands full atention because this son of a b*tch insists in changing requirements as making my VM attributes public.
+    ChatGPT recomended to add methods in CPU to get and set VM attributes using VM methods, I found it redondant but "he" explained that it is useful
+    to maintain the coupling low.
+    - Now that CPU have strong responsability for the logic, It's time to remove this responsability of the VM... I'll have to change some tests too...
+    - That's it! Now I just have to write the CPU tests and fetch part is done!
+
+Unfortunatelly, the decode method will not be made today because it took most time than I tought... Next day I'll make the ELF test with fetch and 
+I'll make the decode method with the Instruction enum... It'll be nice to see an official ELF becoming a lot of instructions as "Instruction::Addi" for example...

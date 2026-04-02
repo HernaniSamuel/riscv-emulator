@@ -7,11 +7,22 @@
 /// - State is never modified on error
 use crate::risc_v::ElfImage;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum VMError {
+    ELFTooLarge,
+    InvalidSegment,
+    InvalidRamSize,
+    MemoryOutOfBounds(u32),
+    InvalidRegister(usize),
+    UnalignedPC(u32),
+    PCOverflow,
+}
+
 #[derive(Debug)]
 pub struct VM {
-    pub ram: Vec<u8>,
-    pub registers: [u32; 32],
-    pub pc: u32,
+    ram: Vec<u8>,
+    registers: [u32; 32],
+    pc: u32,
 }
 
 impl VM {
@@ -165,46 +176,25 @@ impl VM {
 
     /// Sets the program counter to `value`.
     ///
-    /// The PC must be 4-byte aligned (RV32I requirement).
+    /// The value must point to a valid address in RAM. This method does not
+    /// enforce instruction alignment; that responsibility belongs to the CPU.
     ///
     /// # Errors
-    /// Returns [`VMError::UnalignedPC`] if `value` is not 4-byte aligned.
-    /// The PC is **not** modified if an error is returned.
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if `value` is outside RAM.
     pub fn set_pc(&mut self, value: u32) -> Result<(), VMError> {
-        if value % 4 != 0 {
-            return Err(VMError::UnalignedPC(value));
+        let addr = value as usize;
+
+        if addr >= self.ram.len() {
+            return Err(VMError::MemoryOutOfBounds(value));
         }
 
         self.pc = value;
         Ok(())
     }
-
-    /// Advances the program counter by `offset` bytes.
-    ///
-    /// This method checks for overflow and alignment.
-    ///
-    /// # Errors
-    /// Returns [`VMError::PCOverflow`] if the addition overflows.
-    /// Returns [`VMError::UnalignedPC`] if the resulting PC is not aligned.
-    /// The PC is **not** modified if an error is returned.
-    pub fn advance_pc(&mut self, offset: u32) -> Result<(), VMError> {
-        let new_pc = self.pc.checked_add(offset).ok_or(VMError::PCOverflow)?;
-
-        self.set_pc(new_pc)
-    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum VMError {
-    ELFTooLarge,
-    InvalidSegment,
-    InvalidRamSize,
-    MemoryOutOfBounds(u32),
-    InvalidRegister(usize),
-    UnalignedPC(u32),
-    PCOverflow,
-}
-
+// TESTS
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,47 +239,6 @@ mod tests {
 
         vm.set_pc(8).unwrap();
         assert_eq!(vm.get_pc(), 8);
-    }
-
-    #[test]
-    fn test_set_pc_invalid_does_not_change_state() {
-        let mut vm = dummy_vm();
-
-        vm.set_pc(8).unwrap();
-        assert!(vm.set_pc(6).is_err());
-
-        // state must remain unchanged
-        assert_eq!(vm.get_pc(), 8);
-    }
-
-    #[test]
-    fn test_advance_pc_valid_transition() {
-        let mut vm = dummy_vm();
-
-        vm.set_pc(4).unwrap();
-        vm.advance_pc(4).unwrap();
-
-        assert_eq!(vm.get_pc(), 8);
-    }
-
-    #[test]
-    fn test_advance_pc_unaligned_does_not_change_state() {
-        let mut vm = dummy_vm();
-
-        vm.set_pc(4).unwrap();
-        assert!(vm.advance_pc(2).is_err());
-
-        assert_eq!(vm.get_pc(), 4);
-    }
-
-    #[test]
-    fn test_pc_overflow_does_not_change_state() {
-        let mut vm = dummy_vm();
-
-        vm.set_pc(u32::MAX - 3).unwrap();
-        assert!(vm.advance_pc(4).is_err());
-
-        assert_eq!(vm.get_pc(), u32::MAX - 3);
     }
 
     // testing RAM methods
