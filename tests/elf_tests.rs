@@ -227,13 +227,11 @@ mod tests {
 
     #[test]
     fn vm_fetch_reads_instruction_from_pc() {
-        use riscv::CPU;
-
         let nop_bytes = nop();
         let entry = 0x1000u32;
         let data = build_elf(entry, entry, &nop_bytes);
         let image = read_elf(&data).unwrap();
-        let cpu = riscv::cpu::CPU::new(image, 64).unwrap();
+        let cpu = riscv::cpu::cpu::CPU::new(image, 64).unwrap();
 
         let instruction = cpu.fetch().expect("fetch should not fail");
         assert_eq!(instruction, 0x00000013, "fetched instruction must be NOP");

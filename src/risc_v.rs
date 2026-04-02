@@ -1,13 +1,20 @@
-use crate::cpu::CPU;
+use crate::cpu::cpu::{CPU, CPUError};
 use crate::vm::VMError;
 
 #[derive(Debug)]
 pub enum RiscVError {
+    CPU(CPUError),
     NotElf,
     Not32Bit,
     WrongEndian,
     NotRiscV,
     InvalidProgramHeader,
+}
+
+impl From<CPUError> for RiscVError {
+    fn from(e: CPUError) -> Self {
+        RiscVError::CPU(e)
+    }
 }
 
 const EM_RISCV: u16 = 243;
@@ -145,7 +152,7 @@ pub struct RiscV {
 }
 
 impl RiscV {
-    pub fn new(elf_file: ElfImage, ram_length_kb: usize) -> Result<Self, VMError> {
+    pub fn new(elf_file: ElfImage, ram_length_kb: usize) -> Result<Self, RiscVError> {
         Ok(RiscV {
             cpu: CPU::new(elf_file, ram_length_kb)?,
         })

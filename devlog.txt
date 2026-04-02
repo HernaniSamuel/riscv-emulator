@@ -134,3 +134,21 @@ For example, always test some dimensions as impossible states giving errors, bou
 The cargo commands are also the same too: test, fmt, clippy and doc
 The process of implementation consists in AI code generation, I review, tests, and then other AI reviews everything and provide a feedback
 Everything happening based on my knowledge and critical assessment. I became a sort of coordinator, boss, leader, I don't know exactly...
+PS: in general, I liked using AI, it accelerated a lot the work and saved me days (maybe weeks) of manual coding! 
+I'll develop this "franchise model" and document it soon.
+
+Day 14 - 02/04/2026
+Today is day to make the CPU fetch and decode methods and ensure that all RV32I instructions are being recognized by my emulator.
+I'll ensure that by giving an official test ELF and making my emulator to print all instructions on terminal.
+This CPU module is a bit messy with cpu::cpu::CPU, I'll see how to simplify it later...
+I noticed that checking if PC should be only % 4 is a CPU responsability, not a VM responsability. 
+VM should only check if PC still pointing to a valid memory address.
+Ok, is time to solve that enums VMError, CPUError, RiscVError and GeneralError, I need a way to propagate errors between these enums 
+ChatGPT told me that I have to implement a trait called From... Let's see what I have to do today:
+    1. Solve the XError compatibility to use ? without problems
+    2. Solve this responsability problem, making CPU ensuring the PC correct position and VM ensuring the PC valid position
+    3. Make the fetch and decode methods and test with real ELFs by printing the instructions on terminal
+
+1. SOLVING THE XERROR COMPATIBILITY TO USE ERROR PROPAGATION WITHOUT PROBLEMS:
+    - I noticed that only the struct CPU use the struct VM methods, so why not place VMError inside CPUError and exclude GeneralError?
+    
