@@ -164,5 +164,15 @@ ChatGPT told me that I have to implement a trait called From... Let's see what I
     - Now that CPU have strong responsability for the logic, It's time to remove this responsability of the VM... I'll have to change some tests too...
     - That's it! Now I just have to write the CPU tests and fetch part is done!
 
-Unfortunatelly, the decode method will not be made today because it took most time than I tought... Next day I'll make the ELF test with fetch and 
+Unfortunatelly, the decode method will not be made today because it took most time than I tought... Next day I'll make the ELF test with fetch and decode*
 I'll make the decode method with the Instruction enum... It'll be nice to see an official ELF becoming a lot of instructions as "Instruction::Addi" for example...
+
+
+Day 15 - 06/04/2026
+Today is the day to make the decode method and some tests using real ELFs to see the Instruction::X being printed on terminal.
+Ah, disassembler, this is the name of what I'm going to make once I already have the ELF reader, fetch and decode!
+I have to document the disassembler, decode and Instruction enum.
+I also have to think in the execution flags like --memlen n --file file.elf --disassemble for example...
+The unit tests for decode are already done! I'm testing the disassembler too...
+Now I have to make the documentation and the pipeline with flags for memory length, elf file and execution mode (optional debug, printing the instructions in the ELF)
+I installed WSL to use linux to compile assembly and C code to risc-v and test my emulator using this... It worked very well! The RV32I elf is being read and printed successfully!

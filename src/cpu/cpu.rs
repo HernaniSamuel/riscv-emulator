@@ -1,4 +1,5 @@
-use crate::risc_v::ElfImage;
+use crate::cpu::instruction::Instruction;
+use crate::risc_v::{ElfImage, ElfSegment};
 use crate::vm::{VM, VMError};
 
 /// Errors that can occur during CPU operation.
@@ -154,6 +155,15 @@ impl CPU {
         self.vm.set_x(index, value)?;
         Ok(())
     }
+
+    /// Fetches, decodes and prints one instruction, then advances PC.
+    /// This is a linear disassembly mode (no execute stage).
+    pub fn step_decode(&mut self) -> Result<Instruction, CPUError> {
+        let raw = self.fetch()?;
+        let instr = self.decode(raw)?;
+        self.advance_pc()?;
+        Ok(instr)
+    }
 }
 
 // TESTS
@@ -287,5 +297,35 @@ mod tests {
         for i in 0..32usize {
             assert_eq!(cpu.get_x(i).unwrap(), 0, "x{i} should be 0 after reset");
         }
+    }
+
+    // ── disassembler ──────────────────────────────────────────────────────────
+    #[test]
+    fn fetch_and_decode_real_instruction() {
+        // addi x1, x0, 5
+        let instr: u32 = 0x00500093;
+
+        let elf = ElfImage {
+            entry: 0,
+            segments: vec![ElfSegment {
+                vaddr: 0,
+                data: instr.to_le_bytes().to_vec(),
+                mem_size: 4,
+            }],
+        };
+
+        let mut cpu = CPU::new(elf, 4096).unwrap();
+
+        let raw = cpu.fetch().unwrap();
+        let decoded = cpu.decode(raw).unwrap();
+
+        assert_eq!(
+            decoded,
+            Instruction::Addi {
+                rd: 1,
+                rs1: 0,
+                imm: 5
+            }
+        );
     }
 }

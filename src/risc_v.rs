@@ -72,7 +72,7 @@ pub fn read_elf(data: &[u8]) -> Result<ElfImage, RiscVError> {
 
     let header = unsafe { &*(data.as_ptr() as *const Elf32Header) };
 
-    // 1. Assinatura ELF
+    // 1. ELF signature
     if &header.e_ident[0..4] != b"\x7FELF" {
         return Err(RiscVError::NotElf);
     }
