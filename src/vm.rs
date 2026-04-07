@@ -2,7 +2,6 @@
 ///
 /// Guarantees:
 /// - x0 register is always zero
-/// - PC is always 4-byte aligned
 /// - Memory accesses are bounds-checked
 /// - State is never modified on error
 use crate::risc_v::ElfImage;

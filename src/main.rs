@@ -12,21 +12,5 @@ fn main() {
 
     let mut machine = RiscV::new(elf, 4096).expect("failed to create machine");
 
-    loop {
-        let pc = machine.cpu.get_pc();
-
-        let raw = match machine.cpu.fetch() {
-            Ok(i) => i,
-            Err(_) => break,
-        };
-
-        let instr = match machine.cpu.decode(raw) {
-            Ok(i) => i,
-            Err(_) => break,
-        };
-
-        println!("{:#010x}: {:?}", pc, instr);
-
-        machine.cpu.advance_pc().unwrap();
-    }
+    machine.cpu.step().unwrap();
 }

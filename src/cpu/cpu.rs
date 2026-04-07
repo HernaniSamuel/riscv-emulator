@@ -1,5 +1,5 @@
 use crate::cpu::instruction::Instruction;
-use crate::risc_v::{ElfImage, ElfSegment};
+use crate::risc_v::ElfImage;
 use crate::vm::{VM, VMError};
 
 /// Errors that can occur during CPU operation.
@@ -59,6 +59,23 @@ impl CPU {
             running: false,
             exit_code: 0,
         })
+    }
+
+    /// getter for exit_code (I'll document it better later...)
+    pub fn get_exit_code(&self) -> i32 {
+        self.exit_code
+    }
+
+    pub fn set_exit_code(&mut self, value: i32) -> () {
+        self.exit_code = value;
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
+
+    pub fn set_running(&mut self, value: bool) -> () {
+        self.running = value;
     }
 
     /// Fetches the instruction at the current PC (fetch stage).
@@ -156,13 +173,57 @@ impl CPU {
         Ok(())
     }
 
+    /// Reads a byte from memory at the given virtual address.
+    pub fn read_u8(&self, addr: u32) -> Result<u8, CPUError> {
+        Ok(self.vm.read_u8(addr)?)
+    }
+
+    /// Writes a byte to memory at the given virtual address.
+    pub fn write_u8(&mut self, addr: u32, value: u8) -> Result<(), CPUError> {
+        self.vm.write_u8(addr, value)?;
+        Ok(())
+    }
+
+    /// Reads a halfword from memory at the given address.
+    pub fn read_u16(&self, addr: u32) -> Result<u16, CPUError> {
+        Ok(self.vm.read_u16(addr)?)
+    }
+
+    /// Writes a halfword to memory at the given address.
+    pub fn write_u16(&mut self, addr: u32, value: u16) -> Result<(), CPUError> {
+        self.vm.write_u16(addr, value)?;
+        Ok(())
+    }
+
+    /// Reads a word from memory at the given address.
+    pub fn read_u32(&self, addr: u32) -> Result<u32, CPUError> {
+        Ok(self.vm.read_u32(addr)?)
+    }
+
+    /// Writes a word to memory at the given address.
+    pub fn write_u32(&mut self, addr: u32, value: u32) -> Result<(), CPUError> {
+        self.vm.write_u32(addr, value)?;
+        Ok(())
+    }
+
     /// Fetches, decodes and prints one instruction, then advances PC.
     /// This is a linear disassembly mode (no execute stage).
-    pub fn step_decode(&mut self) -> Result<Instruction, CPUError> {
+    pub fn disassemble(&mut self) -> Result<Instruction, CPUError> {
         let raw = self.fetch()?;
         let instr = self.decode(raw)?;
         self.advance_pc()?;
         Ok(instr)
+    }
+
+    /// The fetch-decode-execute cycle
+    pub fn step(&mut self) -> Result<(), CPUError> {
+        self.set_running(true);
+        while self.is_running() {
+            let raw = self.fetch()?;
+            let instr = self.decode(raw)?;
+            self.execute(instr)?;
+        }
+        Ok(())
     }
 }
 
@@ -170,6 +231,7 @@ impl CPU {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::risc_v::ElfSegment;
 
     // ── helpers ───────────────────────────────────────────────────────────────
 

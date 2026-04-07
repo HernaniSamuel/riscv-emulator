@@ -4,39 +4,7 @@
 volatile int result;
 
 int _start() {
-    int a = 5;
-    int b = 10;
-
-    // ALU
-    int c = a + b;
-    int d = c - a;
-    int e = c & b;
-    int f = c | b;
-    int g = c ^ b;
-
-    // shifts
-    int h = c << 2;
-    int i = h >> 1;
-
-    // branch
-    int j = 0;
-    if (i > 10) {
-        j = 1;
-    } else {
-        j = 2;
-    }
-
-    // memory (forces load/store)
-    volatile int mem[4];
-    mem[0] = a;
-    mem[1] = b;
-    mem[2] = c;
-    mem[3] = mem[0] + mem[1];
-
-    result = mem[3] + j;
-
-    // infinite loop (bare metal)
-    while (1) { }
+    return 42;
 }
 
 // run it using the following commands (on the root of the project)

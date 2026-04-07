@@ -1,5 +1,4 @@
 use crate::cpu::cpu::{CPU, CPUError};
-use crate::vm::VMError;
 
 #[derive(Debug)]
 pub enum RiscVError {
