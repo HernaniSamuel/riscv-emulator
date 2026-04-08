@@ -12,5 +12,6 @@ fn main() {
 
     let mut machine = RiscV::new(elf, 4096).expect("failed to create machine");
 
-    machine.cpu.step().unwrap();
+    machine.cpu.run().unwrap();
+    println!("Exited with code {}", machine.cpu.get_exit_code());
 }

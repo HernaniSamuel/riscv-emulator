@@ -188,3 +188,26 @@ So I discovered that I really need to parse the symbol table of the ELF to find 
 Ah wait, I see the way that C finishes it execution in bare-metal, it doesn't uses this tohost, it only uses a0 or something in this way... Ok, I dont care
 about tohost and fromhost then, I'm not making qemu...
 The C language is really the king of silicon. It is litteraly just write code and that's it: makes exactly what it shows to you! (except for UB and unsafety...)
+
+I wrote it in Portuguese and used a translator because I express my toughts better in my native language
+Okay, I have a confession: I ran into a problem where the emulator just wouldn't stop running without throwing an error, 
+and I spent the whole day trying to fix it until I ran out of options. I finally gave up and sent everything to Claude, 
+asking him for an explanation and a well-structured solution...
+He listed the bugs; from what I understood, it was the absence of stack pointer initialization (I didn’t even know there had to be one, just like on the Chip-8) and the wrapping add for advance_pc wasn’t consistent.
+Frankly, I can no longer tell what I did versus what the AI did on this project; I just know that the quality is above expectations and that everything is being thoroughly covered with a battery of tests, and everything is being documented as much as possible with detailed documentation.
+I’m talking to ChatGPT to better understand Claude’s solution, for example, figuring out why a stack pointer is needed. 
+This portfolio project has taken an absurd turn since it openly includes AI, and I no longer know if the complexity is limited to what’s necessary or if it’s now here to complicate things and make me think I could never do this manually in a reasonable amount of time...
+I kind of understand what the code does, but at the same time, I look at it and it seems like an open-source project with years of development—the kind you just look at in awe without really understanding anything.
+
+Tomorrow I'll make better tests and documentation for the execute method, then I'll make UART and finally keep iterating until FreeRTOS boot and work fine...
+Shit, I have imposter syndrome
+
+
+Day 17 - 08/04/2026
+Today I'll make the tests for execute method to ensure that all instructions are modifying the vm states as expected.
+I guess everything about the instructions are already documented in enum Instruction, so only the fn execute needs to be documented.
+Tests are extremly important, specially when using AI to generate the code, they work as guardrail to warrantee that anything breaks.
+The code should be well organized, tested and documented. If we are using AI to generate code, the quality should be the best as possible.
+Apparently, the C code should return 0x12345678 but is returning 0, something is wrong but I litteraly cannot discover wtf is causing the bug ;-;
+It is starting to remember me the development of SIL, a language that compiles to spir-v that I made using python and ChatGPT, some error ocurrs and I spend [literaly] all day trying to fix it...
+I'll try to compare my results with qemu results later...

@@ -18,6 +18,9 @@ pub enum CPUError {
     /// The RISC-V ISA requires all instruction fetches to be aligned to a
     /// 4-byte boundary. Contains the offending address.
     InstructionAddressMisaligned(u32),
+
+    // TODO: document it later
+    UnsupportedSyscall(u32),
 }
 
 impl From<VMError> for CPUError {
@@ -41,18 +44,39 @@ pub struct CPU {
     exit_code: i32,
 }
 
+/// Index of the stack pointer register (x2) in the RISC-V ABI.
+const REG_SP: usize = 2;
+
 impl CPU {
-    /// Creates a new CPU from an ELF image.
+    /// Creates a new CPU from an ELF image and initialises architectural state.
     ///
-    /// Delegates RAM allocation and segment loading to [`VM::new`]. The
-    /// program counter is initialised to the ELF entry point.
+    /// Delegates RAM allocation and segment loading to [`VM::new`]. After the
+    /// VM is ready, performs the two hardware-level initialisations that a real
+    /// RISC-V SoC reset sequence would provide:
+    ///
+    /// 1. **Program counter** — set to the ELF entry point (handled by the VM).
+    /// 2. **Stack pointer (x2)** — set to the top of RAM, 16-byte aligned, as
+    ///    required by the RISC-V psABI calling convention. Without this, the
+    ///    very first function prologue (`addi sp, sp, -N`) would wrap around to
+    ///    `0xFFFF_FFF0` and cause an immediate `MemoryOutOfBounds` fault.
     ///
     /// # Errors
     ///
     /// Returns [`CPUError::VM`] if the ELF image does not fit in `ram_length_kb`
     /// kilobytes or if the image is otherwise invalid.
     pub fn new(elf_file: ElfImage, ram_length_kb: usize) -> Result<Self, CPUError> {
-        let vm = VM::new(elf_file, ram_length_kb)?;
+        let mut vm = VM::new(elf_file, ram_length_kb)?;
+
+        // Initialise the stack pointer to the top of RAM, aligned to 16 bytes.
+        //
+        // The RISC-V psABI requires the stack to be 16-byte aligned at function
+        // entry. We align down from `ram_size` so the first `addi sp, sp, -N`
+        // lands on a valid, in-bounds address rather than wrapping around.
+        //
+        // Note: x0 writes are ignored by the VM, so `ram_size == 0` is the only
+        // pathological case — but `VM::new` already rejects zero-size RAM.
+        let sp_init = vm.ram_size() as u32 & !0xF;
+        vm.set_x(REG_SP, sp_init)?;
 
         Ok(CPU {
             vm,
@@ -146,7 +170,7 @@ impl CPU {
     /// Returns [`CPUError::VM`] if the resulting address would fall outside
     /// RAM bounds.
     pub fn advance_pc(&mut self) -> Result<(), CPUError> {
-        self.set_pc(self.get_pc() + 4) // VM has already confirmed that the PC did not exceed the limits
+        self.set_pc(self.get_pc().wrapping_add(4)) // VM has already confirmed that the PC did not exceed the limits
     }
 
     /// Returns the value of register `index` (x0–x31).
@@ -215,14 +239,42 @@ impl CPU {
         Ok(instr)
     }
 
-    /// The fetch-decode-execute cycle
+    /// Executes one fetch–decode–execute cycle.
+    ///
+    /// # PC advancement rules
+    ///
+    /// After `execute()` returns, the PC is advanced **only when all three
+    /// conditions hold**:
+    ///
+    /// 1. The CPU is still running (`self.running == true`). An `ecall` that
+    ///    triggers `exit` sets `running = false` before this check, so we
+    ///    never attempt to advance past the last instruction.
+    /// 2. The PC was **not** modified by the instruction itself. Branch and
+    ///    jump instructions update the PC inside `execute()`; for all other
+    ///    instructions the PC stays at `pc_before` and we step it forward here.
+    /// 3. The resulting address is within RAM. If it isn't, the step fails with
+    ///    [`CPUError::VM`] — which is a genuine error, not a normal halt.
     pub fn step(&mut self) -> Result<(), CPUError> {
-        self.set_running(true);
-        while self.is_running() {
-            let raw = self.fetch()?;
-            let instr = self.decode(raw)?;
-            self.execute(instr)?;
+        if !self.running {
+            return Ok(());
         }
+        let pc_before = self.get_pc();
+        let raw = self.fetch()?;
+        let instr = self.decode(raw)?;
+        self.execute(instr)?;
+        if self.running && self.get_pc() == pc_before {
+            self.advance_pc()?;
+        }
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<(), CPUError> {
+        self.running = true;
+
+        while self.running {
+            self.step()?;
+        }
+
         Ok(())
     }
 }
@@ -314,9 +366,16 @@ mod tests {
     fn set_and_get_register_roundtrip() {
         let mut cpu = dummy_cpu();
         for i in 1..32usize {
+            // skip x2 (sp) — it is pre-initialised by CPU::new
+            if i == REG_SP {
+                continue;
+            }
             cpu.set_x(i, i as u32 * 10).unwrap();
         }
         for i in 1..32usize {
+            if i == REG_SP {
+                continue;
+            }
             assert_eq!(cpu.get_x(i).unwrap(), i as u32 * 10, "x{i}");
         }
     }
@@ -354,11 +413,36 @@ mod tests {
     }
 
     #[test]
-    fn all_registers_zero_on_reset() {
+    fn all_registers_zero_on_reset_except_sp() {
         let cpu = dummy_cpu();
         for i in 0..32usize {
-            assert_eq!(cpu.get_x(i).unwrap(), 0, "x{i} should be 0 after reset");
+            if i == REG_SP {
+                // sp must be initialised to the top of RAM (4 KB = 4096 = 0x1000)
+                assert_eq!(
+                    cpu.get_x(i).unwrap(),
+                    0x1000,
+                    "x{i} (sp) should point to top of RAM"
+                );
+            } else {
+                assert_eq!(cpu.get_x(i).unwrap(), 0, "x{i} should be 0 after reset");
+            }
         }
+    }
+
+    /// Stack pointer must be 16-byte aligned (RISC-V psABI requirement).
+    #[test]
+    fn initial_sp_is_16_byte_aligned() {
+        let cpu = dummy_cpu();
+        assert_eq!(cpu.get_x(REG_SP).unwrap() % 16, 0);
+    }
+
+    /// Stack pointer must point within RAM bounds so the first `sw` does not fault.
+    #[test]
+    fn initial_sp_is_within_ram() {
+        // 4 KB RAM; the first prologue does `addi sp, sp, -16`, so sp-16 must be >= 0.
+        let cpu = dummy_cpu();
+        let sp = cpu.get_x(REG_SP).unwrap();
+        assert!(sp >= 16, "sp must leave room for at least one stack frame");
     }
 
     // ── disassembler ──────────────────────────────────────────────────────────
@@ -389,5 +473,48 @@ mod tests {
                 imm: 5
             }
         );
+    }
+
+    // ── step / run ────────────────────────────────────────────────────────────
+
+    /// A halting ecall (syscall 93) must stop the CPU cleanly without error,
+    /// even when it is the very last instruction in RAM.
+    #[test]
+    fn ecall_exit_at_end_of_ram_does_not_error() {
+        // ecall encoding
+        const ECALL: u32 = 0x0000_0073;
+        // addi x17, x0, 93  (li a7, 93)
+        const LI_A7_93: u32 = 0x05D00893;
+
+        // Place the two instructions at the very end of 8-byte RAM so that
+        // pc+4 after ecall would be out of bounds.
+        let ram_kb = 1;
+        let ram_size = ram_kb * 1024;
+        let entry = (ram_size - 8) as u32;
+
+        let mut payload = vec![0u8; 8];
+        payload[0..4].copy_from_slice(&LI_A7_93.to_le_bytes());
+        payload[4..8].copy_from_slice(&ECALL.to_le_bytes());
+
+        let elf = ElfImage {
+            entry,
+            segments: vec![ElfSegment {
+                vaddr: entry,
+                data: payload,
+                mem_size: 8,
+            }],
+        };
+
+        let mut cpu = CPU::new(elf, ram_kb).unwrap();
+        // Override sp so the test doesn't trip on stack setup
+        cpu.vm.set_x(REG_SP, entry).unwrap();
+
+        let result = cpu.run();
+        assert!(
+            result.is_ok(),
+            "run() should return Ok after a clean exit ecall, got: {result:?}"
+        );
+        assert_eq!(cpu.get_exit_code(), 0);
+        assert!(!cpu.is_running());
     }
 }

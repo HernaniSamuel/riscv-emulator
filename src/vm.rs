@@ -168,6 +168,14 @@ impl VM {
         Ok(())
     }
 
+    /// Returns the total size of RAM in bytes.
+    ///
+    /// Used by the CPU layer to initialise the stack pointer to the top of
+    /// RAM without exposing the internal `ram` field.
+    pub fn ram_size(&self) -> usize {
+        self.ram.len()
+    }
+
     /// Returns the current program counter.
     pub fn get_pc(&self) -> u32 {
         self.pc

@@ -289,6 +289,7 @@ impl CPU {
     }
 }
 
+// TESTS
 #[cfg(test)]
 mod tests {
     use super::*;
