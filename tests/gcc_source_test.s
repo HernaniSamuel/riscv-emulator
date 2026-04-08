@@ -135,7 +135,16 @@ main:
 	lw	a4,-20(s0)
 	xor	a5,a4,a5
 	sw	a5,-20(s0)
-	lw	a5,-20(s0)
+	lw	a4,-20(s0)
+	li	a5,2100953088
+	addi	a5,a5,685
+	bne	a4,a5,.L8
+	li	a5,305418240
+	addi	a5,a5,1656
+	j	.L10
+.L8:
+	li	a5,0
+.L10:
 	mv	a0,a5
 	lw	ra,76(sp)
 	lw	s0,72(sp)
@@ -161,7 +170,7 @@ ecall
 
 # 0 "" 2
  #NO_APP
-.L10:
-	j	.L10
+.L12:
+	j	.L12
 	.size	_start, .-_start
 	.ident	"GCC: (13.2.0-11ubuntu1+12) 13.2.0"
