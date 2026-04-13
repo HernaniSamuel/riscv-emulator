@@ -214,3 +214,9 @@ I'll try to compare my results with qemu results later...
 So guess what: my emulator was working all the time and this fucking shit C code motherfucker piece of shit was wrong... fuck me why do I still trust in this fucking AI man?! AAAAAAAHHH
 Ok, lesson learned: check the C code in windows before downloading a whole damn bunch risc-v emulators like spike and qemu just to see they also entering in a weird infinite loop...
 I almost gave up because of a fucking wrong number! Fuck I'm too angry right now! 
+
+
+Day 18 - 13/04/2026
+Today I made the CLI mode (that execution arguments), --help or --h to see the commands and "riscv file.elf execute/disassemble (mode) 4096 (ram length)"
+Next step is the UART to see Input and Output, then I'll check the documentation and tests to see if everything still on rails
+The UART should match FreeRTOS IO patterns (I don't know if it exists but this is my intention)

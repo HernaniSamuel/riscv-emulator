@@ -277,6 +277,32 @@ impl CPU {
 
         Ok(())
     }
+
+    pub fn run_disassemble(&mut self, elf: ElfImage) -> Result<(), CPUError> {
+        for seg in &elf.segments {
+            let start = seg.vaddr;
+            let end = seg.vaddr + seg.data.len() as u32;
+
+            self.set_pc(start)?;
+
+            println!("\n== Segment {:#010x} - {:#010x} ==", start, end);
+
+            while self.get_pc() < end {
+                let pc = self.get_pc();
+
+                match self.disassemble() {
+                    Ok(instr) => println!("{:#010x}: {}", pc, instr),
+                    Err(e) => {
+                        println!("Stopped at {:#010x}: {:?}", pc, e);
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+    
 }
 
 // TESTS

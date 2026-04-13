@@ -1,17 +1,37 @@
-use std::env;
-use std::fs;
-
+use std::{fs, process};
+use clap::Parser;
+use riscv::cli::{Args, Mode};
 use riscv::{RiscV, read_elf};
 
 fn main() {
-    let path = env::args().nth(1).expect("missing ELF file");
+    if let Err(e) = run() {
+        eprintln!("error: {e}");
+        process::exit(1);
+    }
+}
 
-    let bytes = fs::read(path).expect("failed to read file");
+fn run() -> Result<(), String> {
+    let args = Args::parse();
 
-    let elf = read_elf(&bytes).expect("invalid ELF");
+    let bytes = fs::read(&args.file)
+        .map_err(|e| format!("failed to read '{}': {e}", args.file))?;
 
-    let mut machine = RiscV::new(elf, 4096).expect("failed to create machine");
+    let elf = read_elf(&bytes)
+        .map_err(|e| format!("invalid ELF: {e:?}"))?;
 
-    machine.cpu.run().unwrap();
-    println!("Exited with code {}", machine.cpu.get_exit_code());
+    let mut machine = RiscV::new(elf.clone(), args.mem_kb)
+        .map_err(|e| format!("failed to create machine: {e:?}"))?;
+
+    match args.mode {
+        Mode::Execute => {
+            machine.cpu.run().map_err(|e| format!("{e:?}"))?;
+            println!("Exited with code {}", machine.cpu.get_exit_code());
+        }
+
+        Mode::Disassemble => {
+            machine.cpu.run_disassemble(elf).map_err(|e| format!("{e:?}"))?;
+        }
+    }
+
+    Ok(())
 }
