@@ -90,7 +90,7 @@ impl CPU {
         self.exit_code
     }
 
-    pub fn set_exit_code(&mut self, value: i32) -> () {
+    pub fn set_exit_code(&mut self, value: i32) {
         self.exit_code = value;
     }
 
@@ -98,7 +98,7 @@ impl CPU {
         self.running
     }
 
-    pub fn set_running(&mut self, value: bool) -> () {
+    pub fn set_running(&mut self, value: bool) {
         self.running = value;
     }
 
@@ -302,7 +302,6 @@ impl CPU {
 
         Ok(())
     }
-    
 }
 
 // TESTS

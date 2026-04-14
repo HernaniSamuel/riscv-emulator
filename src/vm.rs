@@ -5,6 +5,14 @@
 /// - Memory accesses are bounds-checked
 /// - State is never modified on error
 use crate::risc_v::ElfImage;
+use std::io::Read;
+
+const UART_BASE: u32 = 0x1000_0000;
+const UART_TX: u32 = UART_BASE;
+const UART_RX: u32 = UART_BASE;
+const UART_STATUS: u32 = UART_BASE + 0x04;
+
+const TX_READY: u8 = 0b0000_0001;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMError {
@@ -90,8 +98,17 @@ impl VM {
         Ok(())
     }
 
-    /// Reads 1 byte from RAM at address `addr`.
     pub fn read_u8(&self, addr: u32) -> Result<u8, VMError> {
+        match addr {
+            UART_STATUS => return Ok(TX_READY),
+            UART_RX => {
+                let mut buf = [0u8];
+                std::io::stdin().read_exact(&mut buf).unwrap();
+                return Ok(buf[0]);
+            }
+            _ => {}
+        }
+
         let a = addr as usize;
         if a >= self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
@@ -99,8 +116,12 @@ impl VM {
         Ok(self.ram[a])
     }
 
-    /// Writes 1 byte to RAM at address `addr`.
     pub fn write_u8(&mut self, addr: u32, value: u8) -> Result<(), VMError> {
+        if addr == UART_TX {
+            print!("{}", value as char);
+            return Ok(());
+        }
+
         let a = addr as usize;
         if a >= self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
@@ -108,7 +129,6 @@ impl VM {
         self.ram[a] = value;
         Ok(())
     }
-
     /// Reads 2 bytes (little-endian) from RAM at address `addr`.
     ///
     /// Used by the `LH`, `LHU`, and `SH` RV32I instructions.

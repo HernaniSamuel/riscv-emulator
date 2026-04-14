@@ -220,3 +220,14 @@ Day 18 - 13/04/2026
 Today I made the CLI mode (that execution arguments), --help or --h to see the commands and "riscv file.elf execute/disassemble (mode) 4096 (ram length)"
 Next step is the UART to see Input and Output, then I'll check the documentation and tests to see if everything still on rails
 The UART should match FreeRTOS IO patterns (I don't know if it exists but this is my intention)
+
+
+Day 19 - 14/04/2026
+Finally is the time to make the UART and see some I/O on the terminal!
+I'll make something simple but functional since FreeRTOS doesn't have a UART pattern specification.
+UART means Universal Asynchronous Receiver/Transmitter and I'll implement it using MMIO that means Memory Mapped Input/Output
+0x10000000 → UART TX (write → print)
+0x10000005 → UART RX (read → input)
+Easier than I expected!
+I'm ansious to finally document it right and make a professional readme too, I saw that cargo doc is a powerful tool and I wanna use everything it have to offer!
+Damn, this is the most hardcore hello world I ever made! Ok, I used AI to write the code, but I understand what it does...

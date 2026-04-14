@@ -1,7 +1,7 @@
-use std::{fs, process};
 use clap::Parser;
 use riscv::cli::{Args, Mode};
 use riscv::{RiscV, read_elf};
+use std::{fs, process};
 
 fn main() {
     if let Err(e) = run() {
@@ -13,11 +13,9 @@ fn main() {
 fn run() -> Result<(), String> {
     let args = Args::parse();
 
-    let bytes = fs::read(&args.file)
-        .map_err(|e| format!("failed to read '{}': {e}", args.file))?;
+    let bytes = fs::read(&args.file).map_err(|e| format!("failed to read '{}': {e}", args.file))?;
 
-    let elf = read_elf(&bytes)
-        .map_err(|e| format!("invalid ELF: {e:?}"))?;
+    let elf = read_elf(&bytes).map_err(|e| format!("invalid ELF: {e:?}"))?;
 
     let mut machine = RiscV::new(elf.clone(), args.mem_kb)
         .map_err(|e| format!("failed to create machine: {e:?}"))?;
@@ -29,7 +27,10 @@ fn run() -> Result<(), String> {
         }
 
         Mode::Disassemble => {
-            machine.cpu.run_disassemble(elf).map_err(|e| format!("{e:?}"))?;
+            machine
+                .cpu
+                .run_disassemble(elf)
+                .map_err(|e| format!("{e:?}"))?;
         }
     }
 

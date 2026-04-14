@@ -1,8 +1,5 @@
-// gcc_source_test.c
-// Bare-metal RV32I test for emulator
-
-// rv32i_guardrail_test.c
-// Retorna 0x12345678 somente se TUDO estiver correto
+// guardrail.c
+// Returns 305419896 (0x12345678) only if everything is correct, otherwise it returns 0.
 
 typedef unsigned int  u32;
 typedef signed int    i32;
@@ -79,7 +76,7 @@ int main() {
     }
 
     // expected static value
-    return acc == 0x7D3A02AD ? 0x12345678 : 0; // 0 = wrong
+    return acc == 0x7D3A02AD ? 0x12345678 : 0; // 0 = wrong | 305419896 = right
 }
 
 void _start() {
@@ -100,7 +97,7 @@ void _start() {
 // run it using the following commands (on the root of the project)
 // On windows it needs WSL, I don't know how to run it on linux but it appears to be even easier than in windows...
 
-// generate ELF `wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/gcc_source_test.c -o tests/gcc_source_test.elf`
-// run the emulator with the generated ELF `cargo run tests/gcc_source_test.elf`
-// disassemble to compare `wsl riscv64-unknown-elf-objdump -d tests/gcc_source_test.elf`
-// generate assembly `wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -S tests/gcc_source_test.c`
+// generate ELF `wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/guardrail.c -o tests/guardrail.elf`
+// run the emulator with the generated ELF `cargo run tests/guardrail.elf`
+// disassemble to compare `wsl riscv64-unknown-elf-objdump -d tests/guardrail.elf`
+// generate assembly `wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -S tests/guardrail.c`
