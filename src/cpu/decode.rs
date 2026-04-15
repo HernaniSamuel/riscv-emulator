@@ -3,7 +3,7 @@
 //! This module converts raw 32-bit instructions into strongly typed
 //! [`Instruction`] enums used by the execution stage.
 
-use crate::cpu::cpu::{CPU, CPUError};
+use crate::cpu::{CPU, CPUError};
 use crate::cpu::instruction::Instruction;
 
 impl CPU {

@@ -1,4 +1,4 @@
-use crate::cpu::cpu::{CPU, CPUError};
+use crate::cpu::{CPU, CPUError};
 use crate::cpu::instruction::Instruction;
 use crate::cpu::instruction::Instruction::*;
 
@@ -23,7 +23,7 @@ impl CPU {
                 self.set_x(rd as usize, val)?;
             }
             Sll { rd, rs1, rs2 } => {
-                let shamt = (self.get_x(rs2 as usize)? & 0x1f);
+                let shamt = self.get_x(rs2 as usize)? & 0x1f;
                 let val = self.get_x(rs1 as usize)? << shamt;
                 self.set_x(rd as usize, val)?;
             }
@@ -40,12 +40,12 @@ impl CPU {
                 self.set_x(rd as usize, val)?;
             }
             Srl { rd, rs1, rs2 } => {
-                let shamt = (self.get_x(rs2 as usize)? & 0x1f);
+                let shamt = self.get_x(rs2 as usize)? & 0x1f;
                 let val = self.get_x(rs1 as usize)? >> shamt;
                 self.set_x(rd as usize, val)?;
             }
             Sra { rd, rs1, rs2 } => {
-                let shamt = (self.get_x(rs2 as usize)? & 0x1f);
+                let shamt = self.get_x(rs2 as usize)? & 0x1f;
                 let val = (self.get_x(rs1 as usize)? as i32 >> shamt) as u32;
                 self.set_x(rd as usize, val)?;
             }

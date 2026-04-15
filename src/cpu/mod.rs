@@ -1,3 +1,7 @@
+pub mod decode;
+pub mod execute;
+pub mod instruction;
+
 use crate::cpu::instruction::Instruction;
 use crate::risc_v::ElfImage;
 use crate::vm::{VM, VMError};
