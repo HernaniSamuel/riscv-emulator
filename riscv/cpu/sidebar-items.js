@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["cpu","decode","execute","instruction"]};
+window.SIDEBAR_ITEMS = {"enum":["CPUError"],"mod":["decode","execute","instruction"],"struct":["CPU"]};

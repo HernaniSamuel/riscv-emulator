@@ -1,1 +1,59 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `vm` mod in crate `riscv`."><title>riscv::vm - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-68b7e25d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module vm</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate riscv</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">riscv</a></div><h1>Module <span>vm</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/riscv/vm.rs.html#1-365">Source</a> </span></div><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.VM.html" title="struct riscv::vm::VM">VM</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.VMError.html" title="enum riscv::vm::VMError">VMError</a></dt></dl></section></div></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Virtual Machine (VM)"><title>riscv::vm - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module vm</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module vm</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#virtual-machine-vm" title="Virtual Machine (VM)">Virtual Machine (VM)</a><ul><li><a href="#responsibilities" title="Responsibilities">Responsibilities</a></li><li><a href="#memory-model" title="Memory model">Memory model</a></li><li><a href="#registers" title="Registers">Registers</a></li><li><a href="#program-counter-pc" title="Program counter (PC)">Program counter (PC)</a></li><li><a href="#memory-mapped-io" title="Memory-mapped I/O">Memory-mapped I/O</a></li><li><a href="#architecture" title="Architecture">Architecture</a></li><li><a href="#error-handling" title="Error handling">Error handling</a></li><li><a href="#guarantees" title="Guarantees">Guarantees</a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate riscv</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">riscv</a></div><h1>Module <span>vm</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/riscv/vm.rs.html#1-658">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="virtual-machine-vm"><a class="doc-anchor" href="#virtual-machine-vm">§</a>Virtual Machine (VM)</h2>
+<p>This module implements the lowest-level abstraction of the emulator,
+modeling memory, registers, and basic I/O devices.</p>
+<p>The VM provides a safe and deterministic interface over raw machine
+state, which is used by higher layers to implement instruction execution.</p>
+<h3 id="responsibilities"><a class="doc-anchor" href="#responsibilities">§</a>Responsibilities</h3>
+<ul>
+<li>Manage RAM and enforce memory safety</li>
+<li>Provide access to general-purpose registers (<code>x0..x31</code>)</li>
+<li>Maintain the program counter (PC)</li>
+<li>Expose memory-mapped I/O (MMIO)</li>
+</ul>
+<h3 id="memory-model"><a class="doc-anchor" href="#memory-model">§</a>Memory model</h3>
+<p>Memory is represented as a contiguous byte array and follows a
+little-endian layout, as defined by the RISC-V specification.</p>
+<p>All memory accesses are bounds-checked. Invalid accesses result in
+<a href="enum.VMError.html#variant.MemoryOutOfBounds" title="variant riscv::vm::VMError::MemoryOutOfBounds"><code>VMError::MemoryOutOfBounds</code></a> and do not modify the VM state.</p>
+<h3 id="registers"><a class="doc-anchor" href="#registers">§</a>Registers</h3>
+<p>The VM exposes 32 general-purpose registers (<code>x0..x31</code>).</p>
+<p>Register <code>x0</code> is hardwired to zero and ignores writes, as required by
+the RISC-V specification.</p>
+<h3 id="program-counter-pc"><a class="doc-anchor" href="#program-counter-pc">§</a>Program counter (PC)</h3>
+<p>The program counter stores the address of the next instruction to be
+executed.</p>
+<p>The VM ensures that the PC always points to a valid address in RAM,
+but does not enforce instruction alignment. Alignment is the
+responsibility of the CPU layer.</p>
+<h3 id="memory-mapped-io"><a class="doc-anchor" href="#memory-mapped-io">§</a>Memory-mapped I/O</h3>
+<p>A minimal UART device is exposed via memory-mapped registers:</p>
+<div><table><thead><tr><th>Address</th><th>Name</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>0x1000_0000</code></td><td>TX</td><td>Write a character</td></tr>
+<tr><td><code>0x1000_0000</code></td><td>RX</td><td>Read a character (block)</td></tr>
+<tr><td><code>0x1000_0004</code></td><td>STATUS</td><td>Transmitter status</td></tr>
+</tbody></table>
+</div><h4 id="behavior"><a class="doc-anchor" href="#behavior">§</a>Behavior</h4>
+<ul>
+<li>Writing to TX prints a character to standard output</li>
+<li>Reading from RX blocks until input is available</li>
+<li>STATUS returns the transmitter readiness flag</li>
+</ul>
+<h3 id="architecture"><a class="doc-anchor" href="#architecture">§</a>Architecture</h3>
+<p>The VM is used by the <a href="../cpu/index.html" title="mod riscv::cpu"><code>crate::cpu</code></a> layer, which is responsible for
+instruction decoding, execution, and enforcing ISA-level constraints
+such as alignment and control flow.</p>
+<p>The VM itself does not interpret instructions and should be considered
+a pure hardware abstraction layer.</p>
+<h3 id="error-handling"><a class="doc-anchor" href="#error-handling">§</a>Error handling</h3>
+<p>Errors are represented by <a href="enum.VMError.html" title="enum riscv::vm::VMError"><code>VMError</code></a> and correspond to invalid
+operations at the hardware level (e.g. out-of-bounds memory access).</p>
+<p>Higher layers wrap these errors to provide additional context while
+preserving the original cause.</p>
+<h3 id="guarantees"><a class="doc-anchor" href="#guarantees">§</a>Guarantees</h3>
+<ul>
+<li>All memory accesses are bounds-checked</li>
+<li>Register <code>x0</code> is always zero</li>
+<li>The program counter always points to valid memory</li>
+<li>State is not modified on error (operations are atomic)</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.VM.html" title="struct riscv::vm::VM">VM</a></dt><dd>A simple RV32I virtual machine.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.VMError.html" title="enum riscv::vm::VMError">VMError</a></dt><dd>Errors that can occur in the virtual machine layer.</dd></dl></section></div></main></body></html>

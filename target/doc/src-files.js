@@ -1,2 +1,0 @@
-createSrcSidebar('[["riscv",["",[["cpu",[],["cpu.rs","decode.rs","execute.rs","instruction.rs"]]],["cpu.rs","lib.rs","risc_v.rs","vm.rs"]]],["riscv",["",[["cpu",[],["cpu.rs","decode.rs","instruction.rs"]]],["cpu.rs","lib.rs","risc_v.rs","vm.rs"]]],["riscv",["",[["cpu",[],["cpu.rs"]]],["cpu.rs","lib.rs","risc_v.rs","vm.rs"]]],["riscv",["",[],["cpu.rs","lib.rs","risc_v.rs","vm.rs"]]]]');
-//{"start":19,"fragment_lengths":[120,108,79,58]}

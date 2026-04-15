@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["cpu","risc_v","vm"]};
+window.SIDEBAR_ITEMS = {"mod":["cli","cpu","risc_v","vm"]};
