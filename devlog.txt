@@ -235,3 +235,7 @@ Damn, this is the most hardcore hello world I ever made! Ok, I used AI to write 
 Day 20 - 15/04/2026
 Finally I'll explore deeply the cargo doc resources for a professional documentation and I'll make the Readme today. Then I improve the docs alongside I improve the project.
 I have to make some CI/CD tool for this project, then it'll make the cargo commands automatically when I give command... It'll be nice!
+Ok, my plans was to have an assistent, not a code reviewer that looks loke an ATS rejecting my CVs but ok, it is super useful too!
+Now it's time to make it run cargo doc and deploy the updated docs after each commit then I don't have to make it manually after each commit
+So, my documentation is in the higher level of quality, damn I'm so proud of it!
+My point is getting well proved: If we want to use AI, it should have the higher quality as possible!

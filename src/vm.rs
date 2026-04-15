@@ -1,9 +1,82 @@
-/// A simple RV32I virtual machine.
-///
-/// Guarantees:
-/// - x0 register is always zero
-/// - Memory accesses are bounds-checked
-/// - State is never modified on error
+//! # Virtual Machine (VM)
+//!
+//! This module implements the lowest-level abstraction of the emulator,
+//! modeling memory, registers, and basic I/O devices.
+//!
+//! The VM provides a safe and deterministic interface over raw machine
+//! state, which is used by higher layers to implement instruction execution.
+//!
+//! ## Responsibilities
+//!
+//! - Manage RAM and enforce memory safety
+//! - Provide access to general-purpose registers (`x0..x31`)
+//! - Maintain the program counter (PC)
+//! - Expose memory-mapped I/O (MMIO)
+//!
+//! ## Memory model
+//!
+//! Memory is represented as a contiguous byte array and follows a
+//! little-endian layout, as defined by the RISC-V specification.
+//!
+//! All memory accesses are bounds-checked. Invalid accesses result in
+//! [`VMError::MemoryOutOfBounds`] and do not modify the VM state.
+//!
+//! ## Registers
+//!
+//! The VM exposes 32 general-purpose registers (`x0..x31`).
+//!
+//! Register `x0` is hardwired to zero and ignores writes, as required by
+//! the RISC-V specification.
+//!
+//! ## Program counter (PC)
+//!
+//! The program counter stores the address of the next instruction to be
+//! executed.
+//!
+//! The VM ensures that the PC always points to a valid address in RAM,
+//! but does not enforce instruction alignment. Alignment is the
+//! responsibility of the CPU layer.
+//!
+//! ## Memory-mapped I/O
+//!
+//! A minimal UART device is exposed via memory-mapped registers:
+//!
+//! | Address        | Name   | Description              |
+//! |----------------|--------|--------------------------|
+//! | `0x1000_0000`  | TX     | Write a character        |
+//! | `0x1000_0000`  | RX     | Read a character (block) |
+//! | `0x1000_0004`  | STATUS | Transmitter status       |
+//!
+//! ### Behavior
+//!
+//! - Writing to TX prints a character to standard output
+//! - Reading from RX blocks until input is available
+//! - STATUS returns the transmitter readiness flag
+//!
+//! ## Architecture
+//!
+//! The VM is used by the [`crate::cpu`] layer, which is responsible for
+//! instruction decoding, execution, and enforcing ISA-level constraints
+//! such as alignment and control flow.
+//!
+//! The VM itself does not interpret instructions and should be considered
+//! a pure hardware abstraction layer.
+//!
+//! ## Error handling
+//!
+//! Errors are represented by [`VMError`] and correspond to invalid
+//! operations at the hardware level (e.g. out-of-bounds memory access).
+//!
+//! Higher layers wrap these errors to provide additional context while
+//! preserving the original cause.
+//!
+//! ## Guarantees
+//!
+//! - All memory accesses are bounds-checked
+//! - Register `x0` is always zero
+//! - The program counter always points to valid memory
+//! - State is not modified on error (operations are atomic)
+
 use crate::risc_v::ElfImage;
 use std::io::Read;
 
@@ -14,6 +87,23 @@ const UART_STATUS: u32 = UART_BASE + 0x04;
 
 const TX_READY: u8 = 0b0000_0001;
 
+/// Errors that can occur in the virtual machine layer.
+///
+/// # Design
+///
+/// This error type represents failures at the lowest level of the emulator.
+/// Higher layers (such as [`CPUError`] and [`RiscVError`]) wrap this type
+/// to provide additional context.
+///
+/// # Variants
+///
+/// - [`VMError::ELFTooLarge`] — ELF segments exceed available RAM
+/// - [`VMError::InvalidSegment`] — ELF segment is malformed
+/// - [`VMError::InvalidRamSize`] — RAM size overflowed during calculation
+/// - [`VMError::MemoryOutOfBounds`] — invalid memory access
+/// - [`VMError::InvalidRegister`] — invalid register index
+/// - [`VMError::UnalignedPC`] — PC is not properly aligned
+/// - [`VMError::PCOverflow`] — PC arithmetic overflowed
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMError {
     ELFTooLarge,
@@ -25,6 +115,46 @@ pub enum VMError {
     PCOverflow,
 }
 
+/// A simple RV32I virtual machine.
+///
+/// This struct represents the lowest-level abstraction of the emulator,
+/// providing memory, registers, and basic I/O primitives.
+///
+/// # Responsibilities
+///
+/// - Manage RAM and enforce memory safety
+/// - Provide register access (`x0..x31`)
+/// - Maintain the program counter (PC)
+/// - Expose memory-mapped I/O (e.g. UART)
+///
+/// # Guarantees
+///
+/// - Register `x0` is always zero
+/// - All memory accesses are bounds-checked
+/// - State is not modified on error
+///
+/// # Memory model
+///
+/// Memory is represented as a contiguous byte array. All accesses are
+/// little-endian, following the RISC-V specification.
+///
+/// # I/O
+///
+/// A minimal UART device is exposed via memory-mapped I/O:
+///
+/// - `0x1000_0000` — TX (write)
+/// - `0x1000_0000` — RX (read)
+/// - `0x1000_0004` — STATUS
+///
+/// # Examples
+///
+/// ```no_run
+/// use riscv::{RiscV, read_elf};
+///
+/// # let bytes: &[u8] = &[0; 4];
+/// # let elf = read_elf(bytes).unwrap();
+/// let mut vm = RiscV::new(elf, 1024).unwrap();
+/// ```
 #[derive(Debug)]
 pub struct VM {
     ram: Vec<u8>,
@@ -33,9 +163,27 @@ pub struct VM {
 }
 
 impl VM {
-    /// Creates the VM, verifies that all segments fit in RAM,
-    /// copies each segment to the correct virtual address,
-    /// and boots the PC with the ELF entry point.
+    /// Creates a new virtual machine from an ELF image.
+    ///
+    /// This method:
+    ///
+    /// - Allocates RAM
+    /// - Validates all ELF segments
+    /// - Loads segments into memory
+    /// - Initializes the program counter to the ELF entry point
+    ///
+    /// # Errors
+    ///
+    /// Returns [`VMError`] if:
+    ///
+    /// - The RAM size overflows
+    /// - A segment does not fit in memory
+    /// - A segment is malformed
+    ///
+    /// # Notes
+    ///
+    /// All segments are validated before any memory is allocated or modified.
+    /// This guarantees that the VM is never partially initialized.
     pub fn new(elf_file: ElfImage, ram_length_kb: usize) -> Result<Self, VMError> {
         let ram_size = ram_length_kb
             .checked_mul(1024)
@@ -79,7 +227,17 @@ impl VM {
 
     // --- Memory access helpers (required for executing instructions) ---
 
-    /// Reads 4 bytes (little-endian) from RAM at address `addr`.
+    /// Reads a 32-bit little-endian value from memory.
+    ///
+    /// The value is read from the range `addr..addr+4`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if the access exceeds RAM bounds.
+    ///
+    /// # Guarantees
+    ///
+    /// The VM state is not modified if an error occurs.
     pub fn read_u32(&self, addr: u32) -> Result<u32, VMError> {
         let a = addr as usize;
         if a + 4 > self.ram.len() {
@@ -88,7 +246,17 @@ impl VM {
         Ok(u32::from_le_bytes(self.ram[a..a + 4].try_into().unwrap()))
     }
 
-    /// Writes 4 bytes (little-endian) to RAM at address `addr`.
+    /// Writes a 32-bit little-endian value to memory.
+    ///
+    /// The value is written to the range `addr..addr+4`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if the access exceeds RAM bounds.
+    ///
+    /// # Guarantees
+    ///
+    /// Memory is not modified if an error occurs.
     pub fn write_u32(&mut self, addr: u32, value: u32) -> Result<(), VMError> {
         let a = addr as usize;
         if a + 4 > self.ram.len() {
@@ -98,6 +266,27 @@ impl VM {
         Ok(())
     }
 
+    /// Reads a byte from memory or a memory-mapped device.
+    ///
+    /// This method supports both regular RAM access and memory-mapped I/O.
+    ///
+    /// # Memory-mapped I/O
+    ///
+    /// The following addresses have special behavior:
+    ///
+    /// - `UART_STATUS` — returns the transmitter status flag
+    /// - `UART_RX` — reads a byte from standard input (blocking)
+    ///
+    /// All other addresses are treated as normal RAM.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if the address is outside RAM
+    /// and does not correspond to a valid memory-mapped register.
+    ///
+    /// # Guarantees
+    ///
+    /// The VM state is not modified if an error occurs.
     pub fn read_u8(&self, addr: u32) -> Result<u8, VMError> {
         match addr {
             UART_STATUS => return Ok(TX_READY),
@@ -116,6 +305,26 @@ impl VM {
         Ok(self.ram[a])
     }
 
+    /// Writes a byte to memory or a memory-mapped device.
+    ///
+    /// This method supports both regular RAM access and memory-mapped I/O.
+    ///
+    /// # Memory-mapped I/O
+    ///
+    /// The following addresses have special behavior:
+    ///
+    /// - `UART_TX` — writes a character to standard output
+    ///
+    /// All other addresses are treated as normal RAM.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if the address is outside RAM
+    /// and does not correspond to a valid memory-mapped register.
+    ///
+    /// # Guarantees
+    ///
+    /// Memory is not modified if an error occurs.
     pub fn write_u8(&mut self, addr: u32, value: u8) -> Result<(), VMError> {
         if addr == UART_TX {
             print!("{}", value as char);
@@ -129,12 +338,21 @@ impl VM {
         self.ram[a] = value;
         Ok(())
     }
-    /// Reads 2 bytes (little-endian) from RAM at address `addr`.
+
+    /// Reads a 16-bit little-endian value from memory.
     ///
-    /// Used by the `LH`, `LHU`, and `SH` RV32I instructions.
+    /// The value is read from the range `addr..addr+2`.
+    ///
+    /// This method does not enforce alignment constraints. Alignment checks,
+    /// when required, must be handled by the CPU layer.
     ///
     /// # Errors
-    /// Returns [`VMError::MemoryOutOfBounds`] if `addr..addr+2` exceeds RAM bounds.
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if the access exceeds RAM bounds.
+    ///
+    /// # Guarantees
+    ///
+    /// The VM state is not modified if an error occurs.
     pub fn read_u16(&self, addr: u32) -> Result<u16, VMError> {
         let a = addr as usize;
         if a + 2 > self.ram.len() {
@@ -143,11 +361,20 @@ impl VM {
         Ok(u16::from_le_bytes(self.ram[a..a + 2].try_into().unwrap()))
     }
 
-    /// Writes 2 bytes (little-endian) to RAM at address `addr`.
+    /// Writes a 16-bit little-endian value to memory.
+    ///
+    /// The value is written to the range `addr..addr+2`.
+    ///
+    /// This method does not enforce alignment constraints. Alignment checks,
+    /// when required, must be handled by the CPU layer.
     ///
     /// # Errors
-    /// Returns [`VMError::MemoryOutOfBounds`] if `addr..addr+2` exceeds RAM bounds.
-    /// The memory is **not** modified if an error is returned.
+    ///
+    /// Returns [`VMError::MemoryOutOfBounds`] if the access exceeds RAM bounds.
+    ///
+    /// # Guarantees
+    ///
+    /// Memory is not modified if an error occurs.
     pub fn write_u16(&mut self, addr: u32, value: u16) -> Result<(), VMError> {
         let a = addr as usize;
         if a + 2 > self.ram.len() {
@@ -157,10 +384,18 @@ impl VM {
         Ok(())
     }
 
-    /// Returns the value of register `index`.
+    /// Returns the value of a general-purpose register.
+    ///
+    /// Registers are indexed from `0` to `31`, corresponding to `x0..x31`
+    /// in the RISC-V specification.
     ///
     /// # Errors
+    ///
     /// Returns [`VMError::InvalidRegister`] if `index >= 32`.
+    ///
+    /// # Guarantees
+    ///
+    /// The VM state is not modified.
     pub fn get_x(&self, index: usize) -> Result<u32, VMError> {
         if index >= self.registers.len() {
             return Err(VMError::InvalidRegister(index));
@@ -168,12 +403,21 @@ impl VM {
         Ok(self.registers[index])
     }
 
-    /// Sets register `index` to `value`.
+    /// Sets the value of a general-purpose register.
     ///
-    /// Writes to `x0` are silently ignored, as per the RISC-V specification.
+    /// Registers are indexed from `0` to `31`, corresponding to `x0..x31`.
+    ///
+    /// Writes to register `x0` are ignored, as it is hardwired to zero
+    /// in the RISC-V specification.
     ///
     /// # Errors
+    ///
     /// Returns [`VMError::InvalidRegister`] if `index >= 32`.
+    ///
+    /// # Guarantees
+    ///
+    /// - Register `x0` is never modified
+    /// - No state is modified if an error occurs
     pub fn set_x(&mut self, index: usize, value: u32) -> Result<(), VMError> {
         if index >= self.registers.len() {
             return Err(VMError::InvalidRegister(index));
@@ -190,25 +434,53 @@ impl VM {
 
     /// Returns the total size of RAM in bytes.
     ///
-    /// Used by the CPU layer to initialise the stack pointer to the top of
-    /// RAM without exposing the internal `ram` field.
+    /// This method provides read-only access to the VM memory size without
+    /// exposing the internal memory representation.
+    ///
+    /// # Usage
+    ///
+    /// Typically used by the CPU layer to initialize the stack pointer to
+    /// the top of RAM.
+    ///
+    /// # Guarantees
+    ///
+    /// The returned value always reflects the full allocated RAM size.
     pub fn ram_size(&self) -> usize {
         self.ram.len()
     }
 
-    /// Returns the current program counter.
+    /// Returns the current program counter (PC).
+    ///
+    /// The program counter represents the address of the next instruction
+    /// to be executed.
+    ///
+    /// # Guarantees
+    ///
+    /// The VM state is not modified.
     pub fn get_pc(&self) -> u32 {
         self.pc
     }
 
-    /// Sets the program counter to `value`.
+    /// Sets the program counter (PC).
     ///
-    /// The value must point to a valid address in RAM. This method does not
-    /// enforce instruction alignment; that responsibility belongs to the CPU.
+    /// The program counter determines the address of the next instruction
+    /// to be executed.
+    ///
+    /// This method ensures that the value points to a valid address in RAM,
+    /// but does not enforce instruction alignment.
     ///
     /// # Errors
     ///
     /// Returns [`VMError::MemoryOutOfBounds`] if `value` is outside RAM.
+    ///
+    /// # Guarantees
+    ///
+    /// - The PC is not modified if an error occurs
+    /// - Instruction alignment is not validated at this level
+    ///
+    /// # Notes
+    ///
+    /// Alignment and control-flow correctness are the responsibility of the CPU layer.
     pub fn set_pc(&mut self, value: u32) -> Result<(), VMError> {
         let addr = value as usize;
 

@@ -4,25 +4,99 @@ on:
   push:
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: "--deny warnings"
+
 jobs:
-  check:
+  fmt:
+    name: Formatting
     runs-on: ubuntu-latest
-
     steps:
-      - name: Code checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
-      - name: Run fmt
+      - name: cargo fmt --check
         run: cargo fmt -- --check
 
-      - name: Run clippy
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo clippy
         run: cargo clippy -- -D warnings
 
-      - name: Run testes
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo test
         run: cargo test
 
-      - name: Generate docs
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    # Só faz deploy em push na main; em PRs só valida que a doc compila
+    if: github.event_name == 'push'
+    needs: [fmt, clippy, test]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: cargo doc
         run: cargo doc --no-deps
+
+      # Impede que o GitHub Pages tente processar a doc com Jekyll
+      - name: Add .nojekyll
+        run: touch target/doc/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
+          publish_branch: gh-pages
