@@ -92,7 +92,8 @@ const TX_READY: u8 = 0b0000_0001;
 /// # Design
 ///
 /// This error type represents failures at the lowest level of the emulator.
-/// Higher layers (such as [`CPUError`] and [`RiscVError`]) wrap this type
+///
+/// Higher layers (such as [`crate::cpu::CPUError`] and [`crate::risc_v::RiscVError`]) wrap this type
 /// to provide additional context.
 ///
 /// # Variants

@@ -166,7 +166,7 @@ impl CPU {
     /// Advances the program counter by 4 bytes (one RV32I instruction).
     ///
     /// Equivalent to `set_pc(get_pc() + 4)`. The VM's bounds check on
-    /// [`set_pc`] ensures the new address remains within RAM, so no
+    /// [`VM::set_pc`] ensures the new address remains within RAM, so no
     /// separate overflow guard is needed here.
     ///
     /// # Errors
