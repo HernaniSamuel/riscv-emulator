@@ -3,8 +3,8 @@
 //! This module converts raw 32-bit instructions into strongly typed
 //! [`Instruction`] enums used by the execution stage.
 
-use crate::cpu::{CPU, CPUError};
 use crate::cpu::instruction::Instruction;
+use crate::cpu::{CPU, CPUError};
 
 impl CPU {
     /// Decodes a raw 32-bit RISC-V instruction into a structured [Instruction] enum.

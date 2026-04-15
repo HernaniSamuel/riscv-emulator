@@ -1,6 +1,6 @@
-use crate::cpu::{CPU, CPUError};
 use crate::cpu::instruction::Instruction;
 use crate::cpu::instruction::Instruction::*;
+use crate::cpu::{CPU, CPUError};
 
 impl CPU {
     /// Executes a single RV32I instruction on the CPU's VM.
