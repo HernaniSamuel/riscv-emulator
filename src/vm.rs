@@ -80,11 +80,22 @@
 use crate::risc_v::ElfImage;
 use std::io::Read;
 
+/// Base address for the UART MMIO region.
 const UART_BASE: u32 = 0x1000_0000;
+
+/// UART transmit register (write-only).
+/// Writing a byte here outputs it to stdout.
 const UART_TX: u32 = UART_BASE;
+
+/// UART receive register (read-only).
+/// Reading blocks until a byte is available from stdin.
 const UART_RX: u32 = UART_BASE;
+
+/// UART status register.
+/// Bit 0 (`TX_READY`) indicates the transmitter is ready.
 const UART_STATUS: u32 = UART_BASE + 0x04;
 
+/// UART transmitter ready flag.
 const TX_READY: u8 = 0b0000_0001;
 
 /// Errors that can occur in the virtual machine layer.

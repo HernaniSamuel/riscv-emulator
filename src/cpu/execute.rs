@@ -1,12 +1,159 @@
+//! RISC-V RV32I instruction execution engine.
+//!
+//! This module implements the **execution stage** of a simplified RISC-V CPU pipeline.
+//! It is responsible for applying the semantic effects of a decoded
+//! [`Instruction`] to the CPU state.
+//!
+//! # Role in the architecture
+//!
+//! The CPU is conceptually split into three stages:
+//!
+//! 1. **Fetch** – reads a 32-bit instruction from memory
+//! 2. **Decode** – converts raw bits into [`Instruction`]
+//! 3. **Execute** – applies the instruction effects (this module)
+//!
+//! This module corresponds to stage (3).
+//!
+//! # Responsibilities
+//!
+//! The execution engine is responsible for:
+//!
+//! - Integer ALU operations (R-type and I-type instructions)
+//! - Memory access (loads and stores)
+//! - Control flow (branches and jumps)
+//! - System instructions (`ecall`, `ebreak`)
+//! - Maintaining architectural state consistency
+//!
+//! # Design principles
+//!
+//! - **Single instruction effect model**: each call executes exactly one instruction.
+//! - **Wrapping arithmetic**: all integer operations follow RV32I wrapping semantics.
+//! - **Strict register semantics**: `x0` is always hardwired to zero.
+//! - **Separation of concerns**: execution does not perform decoding or fetching.
+//!
+//! # Program Counter (PC) semantics
+//!
+//! - The PC is only modified by control-flow instructions:
+//!   - Branches (when taken)
+//!   - JAL / JALR
+//! - Non-control-flow instructions do not mutate the PC.
+//! - JALR always clears bit 0 of the target address (alignment rule).
+//!
+//! # Memory model
+//!
+//! - Little-endian addressing is assumed.
+//! - Loads perform sign-extension or zero-extension depending on opcode.
+//! - Stores truncate values to target width (byte / halfword / word).
+//!
+//! # System behavior
+//!
+//! - `ecall` is partially implemented and currently supports exit syscall.
+//! - Unsupported syscalls return [`CPUError::UnsupportedSyscall`].
+//! - `ebreak`, `fence`, and `fence.i` are treated as no-ops.
+//!
+//! # Compliance
+//!
+//! This implementation targets the **RV32I base integer ISA only**.
+//! Extensions such as RV32M, RV32A, and compressed ISA (C) are not implemented.
+//!
+//! # Error handling
+//!
+//! Execution may fail with [`CPUError`] in cases such as:
+//!
+//! - Invalid memory access
+//! - Unsupported system call
+//! - Internal VM violations
+//!
+//! # Performance characteristics
+//!
+//! - Branches are resolved in a single step (no pipeline delay model)
+//! - No speculative execution
+//! - No out-of-order behavior
+//!
+//! This is a **functional emulator**, not a timing-accurate simulator.
+//!
+
 use crate::cpu::instruction::Instruction;
 use crate::cpu::instruction::Instruction::*;
 use crate::cpu::{CPU, CPUError};
 
 impl CPU {
-    /// Executes a single RV32I instruction on the CPU's VM.
+    /// Executes a single RV32I instruction on the CPU.
     ///
-    /// Updates registers, memory, and PC as needed. Errors from VM or illegal instructions
-    /// are propagated as [`CPUError`].
+    /// This function implements the execution stage of the RISC-V pipeline.
+    /// It takes a decoded [`Instruction`] and applies its semantics to the CPU state,
+    /// including register file updates, memory access, and control flow changes.
+    ///
+    /// The function is **stateful**: it may modify:
+    /// - General-purpose registers (`x0`–`x31`)
+    /// - Memory
+    /// - Program counter (PC)
+    /// - CPU execution state (running / exit code)
+    ///
+    /// # Semantics
+    ///
+    /// - Arithmetic and logical instructions operate with wrapping semantics.
+    /// - Branches modify the PC only when the condition is satisfied.
+    /// - Jumps always update the PC and may write the return address.
+    /// - Loads and stores perform memory access with sign/zero extension as specified by RV32I.
+    /// - `x0` is always hardwired to zero (writes are ignored).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CPUError`] when:
+    /// - A memory access fails (invalid address, alignment, etc.)
+    /// - An unsupported or invalid syscall is executed (`ecall`)
+    ///
+    /// # Instruction Effects Summary
+    ///
+    /// ## ALU (R-type / I-type)
+    /// - Perform arithmetic, logical, and shift operations
+    /// - Use wrapping arithmetic (`wrapping_add`, `wrapping_sub`)
+    ///
+    /// ## Memory (Loads / Stores)
+    /// - `lb`, `lh` sign-extend results
+    /// - `lbu`, `lhu` zero-extend results
+    /// - Stores write low bytes/halfwords/words to memory
+    ///
+    /// ## Control Flow
+    /// - Branches modify PC only if condition is true
+    /// - `jal` writes return address (PC + 4)
+    /// - `jalr` clears bit 0 of target address
+    ///
+    /// ## System Instructions
+    /// - `ecall` may halt execution or trigger syscalls
+    /// - `ebreak` is currently a no-op
+    /// - `fence` / `fence.i` are no-ops in this implementation
+    ///
+    /// # Notes
+    ///
+    /// - This function does **not fetch or decode instructions**.
+    /// - It assumes the instruction is already validated.
+    /// - PC management depends on the caller for non-control-flow instructions.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut cpu = CPU::new(elf, 4096).unwrap();
+    ///
+    /// cpu.execute(Instruction::Addi {
+    ///     rd: 1,
+    ///     rs1: 0,
+    ///     imm: 10,
+    /// })?;
+    ///
+    /// assert_eq!(cpu.get_x(1)?, 10);
+    /// ```
+    ///
+    /// # RISC-V Compliance
+    ///
+    /// Implements RV32I base integer ISA (no M/A/F/D extensions).
+    /// Compliant behavior includes:
+    ///
+    /// - Proper sign extension for loads
+    /// - Proper shift masking (`shamt & 0x1f`)
+    /// - Proper JALR alignment (`& !1`)
+    ///
     pub fn execute(&mut self, instr: Instruction) -> Result<(), CPUError> {
         match instr {
             // ===================== R-type =====================

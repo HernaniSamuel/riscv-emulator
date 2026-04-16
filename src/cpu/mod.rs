@@ -1,3 +1,102 @@
+//! # CPU
+//!
+//! This module implements the RV32I CPU layer of the emulator.
+//!
+//! It is responsible for instruction semantics and execution flow,
+//! orchestrating the underlying hardware abstraction provided by
+//! [`crate::vm`].
+//!
+//! ## Responsibilities
+//!
+//! - Implement the RV32I instruction set
+//! - Control execution flow (fetch–decode–execute)
+//! - Enforce ISA-level constraints (alignment, control flow, syscalls)
+//! - Provide a higher-level interface over the [`crate::vm::VM`]
+//! - Translate low-level errors into [`CPUError`]
+//!
+//! ## Architecture
+//!
+//! The CPU operates on top of a [`crate::vm::VM`] instance, which provides:
+//!
+//! - Memory (RAM)
+//! - Register file (`x0..x31`)
+//! - Program counter (PC)
+//! - Memory-mapped I/O (e.g. UART)
+//!
+//! The CPU does **not** store architectural state directly. Instead,
+//! it encapsulates the VM and applies instruction semantics on top of it.
+//!
+//! This separation models a classic hardware/software boundary:
+//!
+//! - **Hardware layer** → [`crate::vm`]
+//! - **Execution logic** → `cpu`
+//!
+//! ## Instruction pipeline
+//!
+//! The CPU follows a simple in-order 3-stage pipeline:
+//!
+//! 1. **Fetch** — reads a raw 32-bit instruction from memory
+//! 2. **Decode** — converts the opcode into an [`instruction::Instruction`]
+//! 3. **Execute** — applies the instruction's effects to the machine state
+//!
+//! The [`instruction::Instruction`] enum acts as a typed interface between
+//! decoding, execution, and disassembly, ensuring a clear separation of concerns.
+//!
+//! These stages are implemented across submodules:
+//!
+//! - [`decode`] — instruction decoding logic
+//! - [`execute`] — instruction semantics
+//! - [`instruction`] — typed instruction representation
+//!
+//! ## Execution model
+//!
+//! Execution is driven by repeated calls to [`CPU::step`], which performs
+//! a single fetch–decode–execute cycle.
+//!
+//! [`CPU::run`] builds on top of this by continuously stepping the CPU
+//! until a halt condition is reached.
+//!
+//! The program counter (PC) is advanced automatically after each instruction,
+//! except when explicitly modified by control-flow instructions (e.g. branches,
+//! jumps, or system calls).
+//!
+//! ## Execution modes
+//!
+//! The CPU supports two execution modes:
+//!
+//! - **Normal execution** — via [`CPU::run`] and [`CPU::step`], which
+//!   perform full fetch–decode–execute cycles and mutate machine state.
+//!
+//! - **Disassembly mode** — via [`CPU::run_disassemble`], which replaces
+//!   the execute stage with a textual representation of instructions.
+//!
+//! In disassembly mode:
+//!
+//! - Instructions are fetched and decoded normally
+//! - No architectural state is modified
+//! - Output is written to standard output
+//!
+//! This mode is useful for debugging, inspection, and tooling.
+//!
+//! ## Error handling
+//!
+//! Errors are represented by [`CPUError`].
+//!
+//! This layer:
+//!
+//! - wraps [`crate::vm::VMError`]
+//! - introduces ISA-level errors (e.g. misalignment, illegal instructions)
+//!
+//! Higher layers (such as [`crate::risc_v::RiscVError`]) wrap [`CPUError`]
+//! to provide full-system context.
+//!
+//! ## Design notes
+//!
+//! - The CPU is **single-core** and executes instructions in-order
+//! - No pipelining hazards or parallelism are modeled
+//! - The design prioritizes clarity and correctness over performance
+//! - The module is structured to mirror real CPU architecture concepts
+
 pub mod decode;
 pub mod execute;
 pub mod instruction;
@@ -7,27 +106,86 @@ use crate::risc_v::ElfImage;
 use crate::vm::{VM, VMError};
 
 /// Errors that can occur during CPU operation.
+///
+/// # Design
+///
+/// This error type represents failures at the instruction execution layer.
+///
+/// It extends [`crate::vm::VMError`] by introducing errors related to
+/// instruction decoding, alignment constraints, and execution semantics.
+///
+/// Errors from the underlying hardware abstraction ([`crate::vm::VM`])
+/// are propagated via [`CPUError::VM`], preserving the original cause.
+///
+/// # Variants
+///
+/// - [`CPUError::VM`] — error originating from the VM layer
+/// - [`CPUError::IllegalInstruction`] — invalid or unsupported opcode
+/// - [`CPUError::InstructionAddressMisaligned`] — PC is not 4-byte aligned
+/// - [`CPUError::UnsupportedSyscall`] — unimplemented system call
 #[derive(Debug)]
 pub enum CPUError {
-    /// Wraps an error from the underlying [`VM`].
+    /// Wraps an error from the underlying [`crate::vm::VM`].
+    ///
+    /// This variant is used to propagate low-level failures such as:
+    ///
+    /// - Out-of-bounds memory access
+    /// - Invalid register access
+    /// - Invalid program counter updates
+    ///
+    /// The original [`crate::vm::VMError`] is preserved for precise diagnostics.
     VM(VMError),
 
-    /// The fetched instruction opcode is not defined in RV32I.
+    /// The fetched instruction opcode is not defined in the RV32I ISA.
     ///
-    /// Contains the raw 32-bit word that caused the fault.
+    /// This error occurs during the **decode stage**, when the raw 32-bit
+    /// instruction word cannot be mapped to a valid [`instruction::Instruction`].
+    ///
+    /// # Payload
+    ///
+    /// Contains the raw 32-bit instruction word that caused the fault.
+    ///
+    /// This is useful for debugging invalid binaries or incomplete ISA support.
     IllegalInstruction(u32),
 
-    /// The program counter holds an address that is not 4-byte aligned.
+    /// The program counter (PC) is not aligned to a 4-byte boundary.
     ///
-    /// The RISC-V ISA requires all instruction fetches to be aligned to a
-    /// 4-byte boundary. Contains the offending address.
+    /// The RISC-V ISA requires all instruction fetches to be aligned to
+    /// 4-byte boundaries. Any attempt to fetch or set a misaligned PC
+    /// results in this error.
+    ///
+    /// This is enforced during:
+    ///
+    /// - [`CPU::fetch`]
+    /// - [`CPU::set_pc`]
+    ///
+    /// # Payload
+    ///
+    /// Contains the misaligned address.
     InstructionAddressMisaligned(u32),
 
-    // TODO: document it later
+    /// A system call (`ecall`) was invoked but is not supported by the emulator.
+    ///
+    /// This error is raised during the **execute stage** when handling
+    /// environment calls that are not implemented.
+    ///
+    /// # Payload
+    ///
+    /// Contains the syscall identifier (typically stored in a register such
+    /// as `a7`, depending on the calling convention).
+    ///
+    /// # Notes
+    ///
+    /// This variant allows the emulator to explicitly fail on unsupported
+    /// functionality instead of silently ignoring it.
     UnsupportedSyscall(u32),
 }
 
 impl From<VMError> for CPUError {
+    /// Converts a [`crate::vm::VMError`] into a [`CPUError`].
+    ///
+    /// This enables automatic error propagation using the `?` operator
+    /// in CPU methods that interact with the underlying [`crate::vm::VM`].
     fn from(e: VMError) -> Self {
         CPUError::VM(e)
     }
@@ -35,16 +193,69 @@ impl From<VMError> for CPUError {
 
 /// A single-core RV32I CPU.
 ///
-/// The CPU owns a [`VM`] that provides RAM and the register file. All
-/// architectural state (PC, registers, memory) lives inside the VM; the CPU
-/// layer adds the fetch/decode/execute pipeline and ISA-level error handling.
+/// The CPU implements the instruction execution layer of the emulator,
+/// providing fetch–decode–execute semantics on top of a [`crate::vm::VM`].
+///
+/// All architectural state — including memory, registers, and the program
+/// counter (PC) — is stored in the underlying [`crate::vm::VM`]. The CPU
+/// itself is responsible for applying instruction semantics and managing
+/// execution flow.
+///
+/// # Responsibilities
+///
+/// - Execute RV32I instructions
+/// - Control program flow (PC updates, branching, halting)
+/// - Enforce ISA-level constraints (alignment, valid opcodes)
+/// - Translate [`crate::vm::VMError`] into [`CPUError`]
+/// - Provide a disassembly mode for inspecting binaries
+///
+/// # Execution model
+///
+/// The CPU operates on a simple 3-stage pipeline:
+///
+/// 1. [`CPU::fetch`] — reads the next instruction from memory
+/// 2. [`CPU::decode`] — converts it into an [`instruction::Instruction`]
+/// 3. [`CPU::execute`] — applies its effects to the machine state
+///
+/// Higher-level methods such as [`CPU::step`] and [`CPU::run`] orchestrate
+/// repeated execution of this pipeline.
+///
+/// ## Execution modes
+///
+/// The CPU supports two execution modes:
+///
+/// - **Normal execution** — via [`CPU::run`] and [`CPU::step`], performing
+///   full fetch–decode–execute cycles.
+/// - **Disassembly mode** — via [`CPU::run_disassemble`], where instructions
+///   are fetched and decoded but not executed, and are instead formatted
+///   and printed.
+///
+/// This allows the same decoding pipeline to be reused for both execution
+/// and inspection of binaries.
+///
+/// # State
+///
+/// Although the CPU does not store architectural state directly, it maintains:
+///
+/// - `running` — whether execution should continue
+/// - `exit_code` — value returned when the program terminates
+///
+/// # Invariants
+///
+/// - The program counter is always 4-byte aligned
+/// - Execution stops when `running == false`
+/// - All memory and register accesses are validated by the [`crate::vm::VM`]
 pub struct CPU {
     vm: VM,
 
-    /// Whether the CPU is currently executing instructions.
+    /// Indicates whether the CPU is currently executing instructions.
+    ///
+    /// When set to `false`, execution stops on the next cycle.
     running: bool,
 
-    /// Exit code set by the program, e.g. via an `ecall` that mimics `exit()`.
+    /// Exit code produced by the program.
+    ///
+    /// This is typically set via an `ecall` that mimics a system `exit`.
     exit_code: i32,
 }
 
@@ -54,31 +265,42 @@ const REG_SP: usize = 2;
 impl CPU {
     /// Creates a new CPU from an ELF image and initialises architectural state.
     ///
-    /// Delegates RAM allocation and segment loading to [`VM::new`]. After the
-    /// VM is ready, performs the two hardware-level initialisations that a real
-    /// RISC-V SoC reset sequence would provide:
+    /// This constructor builds the CPU on top of a [`VM`] instance, which is
+    /// responsible for loading the ELF image into memory and setting the initial
+    /// program counter (PC).
     ///
-    /// 1. **Program counter** — set to the ELF entry point (handled by the VM).
-    /// 2. **Stack pointer (x2)** — set to the top of RAM, 16-byte aligned, as
-    ///    required by the RISC-V psABI calling convention. Without this, the
-    ///    very first function prologue (`addi sp, sp, -N`) would wrap around to
-    ///    `0xFFFF_FFF0` and cause an immediate `MemoryOutOfBounds` fault.
+    /// After the VM is initialised, this method performs additional
+    /// CPU-level initialisation steps that mirror a real RISC-V reset sequence:
+    ///
+    /// 1. **Program counter (PC)** — initialised to the ELF entry point
+    ///    (handled by [`VM::new`]).
+    /// 2. **Stack pointer (x2 / `sp`)** — initialised to the top of RAM,
+    ///    aligned to 16 bytes, as required by the RISC-V psABI.
+    ///
+    /// The stack pointer is aligned *downwards* from the total RAM size to ensure
+    /// that the first stack allocation (e.g. `addi sp, sp, -N`) remains within
+    /// valid memory bounds.
+    ///
+    /// Without this initialisation, typical compiled programs would immediately
+    /// fault due to stack underflow (e.g. wrapping to `0xFFFF_FFF0`).
     ///
     /// # Errors
     ///
-    /// Returns [`CPUError::VM`] if the ELF image does not fit in `ram_length_kb`
-    /// kilobytes or if the image is otherwise invalid.
+    /// Returns [`CPUError::VM`] if:
+    ///
+    /// - the ELF image is invalid
+    /// - the image does not fit within the specified RAM size
+    /// - the underlying [`VM`] fails to initialise
+    ///
+    /// # Guarantees
+    ///
+    /// - The CPU starts in a **stopped state** (`running = false`)
+    /// - The PC points to a valid instruction within RAM
+    /// - The stack pointer (`x2`) is valid and ABI-compliant
+    /// - All architectural state is initialised and consistent
     pub fn new(elf_file: ElfImage, ram_length_kb: usize) -> Result<Self, CPUError> {
         let mut vm = VM::new(elf_file, ram_length_kb)?;
 
-        // Initialise the stack pointer to the top of RAM, aligned to 16 bytes.
-        //
-        // The RISC-V psABI requires the stack to be 16-byte aligned at function
-        // entry. We align down from `ram_size` so the first `addi sp, sp, -N`
-        // lands on a valid, in-bounds address rather than wrapping around.
-        //
-        // Note: x0 writes are ignored by the VM, so `ram_size == 0` is the only
-        // pathological case — but `VM::new` already rejects zero-size RAM.
         let sp_init = vm.ram_size() as u32 & !0xF;
         vm.set_x(REG_SP, sp_init)?;
 
@@ -89,38 +311,83 @@ impl CPU {
         })
     }
 
-    /// getter for exit_code (I'll document it better later...)
+    /// Returns the program exit code.
+    ///
+    /// This value is typically set by the program via an `ecall` that mimics
+    /// a system `exit`. It becomes meaningful after execution has stopped
+    /// (i.e. when [`CPU::run`] or [`CPU::step`] completes).
+    ///
+    /// # Notes
+    ///
+    /// - The default value is `0`
+    /// - The meaning of the exit code is program-defined
     pub fn get_exit_code(&self) -> i32 {
         self.exit_code
     }
 
+    /// Sets the program exit code.
+    ///
+    /// This is primarily intended to be used by syscall handlers
+    /// (e.g. when implementing `ecall` semantics).
+    ///
+    /// # Notes
+    ///
+    /// - Setting the exit code does **not** stop execution
+    /// - Callers are expected to also update [`CPU::set_running`]
+    ///   if termination is desired
     pub fn set_exit_code(&mut self, value: i32) {
         self.exit_code = value;
     }
 
+    /// Returns whether the CPU is currently executing instructions.
+    ///
+    /// When this returns `false`, the CPU is considered halted and
+    /// no further instructions will be executed unless restarted.
     pub fn is_running(&self) -> bool {
         self.running
     }
 
+    /// Sets the CPU execution state.
+    ///
+    /// When set to `false`, execution will stop on the next cycle
+    /// (e.g. in [`CPU::step`] or [`CPU::run`]).
+    ///
+    /// # Usage
+    ///
+    /// This is typically controlled internally by the CPU, for example:
+    ///
+    /// - When handling an `ecall` that terminates the program
+    /// - When a fatal error occurs
+    ///
+    /// External callers may also use this to manually stop execution.
     pub fn set_running(&mut self, value: bool) {
         self.running = value;
     }
 
-    /// Fetches the instruction at the current PC (fetch stage).
+    /// Fetches the instruction at the current program counter (PC).
     ///
-    /// Enforces the RV32I alignment requirement before reading memory:
-    /// if the PC is not 4-byte aligned an error is returned immediately and
-    /// no memory access is attempted.
+    /// This corresponds to the *fetch* stage of the classic
+    /// fetch–decode–execute pipeline.
     ///
-    /// Returns the raw 32-bit instruction word; decoding happens in the next
-    /// pipeline stage.
+    /// The method enforces the RV32I alignment requirement before accessing
+    /// memory: instruction addresses must be 4-byte aligned. If the PC is not
+    /// properly aligned, an error is returned immediately and no memory access
+    /// is performed.
+    ///
+    /// On success, returns the raw 32-bit instruction word. Decoding is handled
+    /// by [`CPU::decode`] in the next pipeline stage.
     ///
     /// # Errors
     ///
-    /// Returns [`CPUError::InstructionAddressMisaligned`] if the current PC
-    /// is not 4-byte aligned.
+    /// - [`CPUError::InstructionAddressMisaligned`] — if the current PC is not
+    ///   4-byte aligned
+    /// - [`CPUError::VM`] — if the underlying VM fails to read memory
+    ///   (e.g. the PC is outside RAM bounds)
     ///
-    /// Returns [`CPUError::VM`] if the PC is outside RAM bounds.
+    /// # Guarantees
+    ///
+    /// - No memory access occurs if the PC is misaligned
+    /// - The VM state is not modified by this operation
     pub fn fetch(&self) -> Result<u32, CPUError> {
         let pc = self.vm.get_pc();
 
@@ -132,7 +399,18 @@ impl CPU {
         Ok(self.vm.read_u32(pc)?)
     }
 
-    /// Returns the address of the next instruction to be fetched.
+    /// Returns the current program counter (PC).
+    ///
+    /// The PC represents the address of the next instruction to be fetched
+    /// during the [`CPU::fetch`] stage.
+    ///
+    /// This value is stored in the underlying [`crate::vm::VM`] and reflects
+    /// the current execution position of the CPU.
+    ///
+    /// # Notes
+    ///
+    /// - The PC is always expected to be 4-byte aligned (enforced by [`CPU::set_pc`])
+    /// - The returned value is not validated again here
     pub fn get_pc(&self) -> u32 {
         // future: trace
         self.vm.get_pc()
@@ -140,20 +418,27 @@ impl CPU {
 
     /// Sets the program counter (PC) to `value`.
     ///
-    /// Enforces the RV32I requirement that instruction addresses must be
-    /// 4-byte aligned. If `value` is not aligned the error is returned
-    /// immediately and the PC is not modified.
+    /// The PC determines the address of the next instruction to be fetched.
+    /// This method enforces the RV32I requirement that all instruction
+    /// addresses must be 4-byte aligned.
     ///
-    /// On success, the new PC value is forwarded to the underlying VM, which
-    /// performs a bounds check against RAM.
+    /// If `value` is not properly aligned, the error is returned immediately
+    /// and the PC is not modified.
+    ///
+    /// On success, the new PC value is forwarded to the underlying
+    /// [`crate::vm::VM`], which performs a bounds check against RAM.
     ///
     /// # Errors
     ///
-    /// Returns [`CPUError::InstructionAddressMisaligned`] if `value` is not
-    /// 4-byte aligned.
+    /// - [`CPUError::InstructionAddressMisaligned`] — if `value` is not
+    ///   4-byte aligned
+    /// - [`CPUError::VM`] — if the underlying VM rejects the update
+    ///   (e.g. the address is outside RAM)
     ///
-    /// Returns [`CPUError::VM`] if the underlying VM rejects the update
-    /// (e.g. the address is outside RAM).
+    /// # Guarantees
+    ///
+    /// - The PC is updated only if all checks succeed
+    /// - The PC remains unchanged on error
     pub fn set_pc(&mut self, value: u32) -> Result<(), CPUError> {
         if value & 0b11 != 0 {
             return Err(CPUError::InstructionAddressMisaligned(value));
@@ -163,79 +448,234 @@ impl CPU {
         Ok(())
     }
 
-    /// Advances the program counter by 4 bytes (one RV32I instruction).
+    /// Advances the program counter (PC) by 4 bytes (one RV32I instruction).
     ///
-    /// Equivalent to `set_pc(get_pc() + 4)`. The VM's bounds check on
-    /// [`VM::set_pc`] ensures the new address remains within RAM, so no
-    /// separate overflow guard is needed here.
+    /// This corresponds to moving to the next sequential instruction in the
+    /// absence of control flow changes (e.g. branches or jumps).
+    ///
+    /// Internally, this is equivalent to:
+    ///
+    /// ```text
+    /// set_pc(get_pc() + 4)
+    /// ```
+    ///
+    /// The addition uses wrapping semantics (`wrapping_add`) to avoid
+    /// arithmetic overflow panics. The resulting address is then validated
+    /// by [`CPU::set_pc`], which enforces alignment and delegates bounds
+    /// checking to the underlying [`crate::vm::VM`].
     ///
     /// # Errors
     ///
-    /// Returns [`CPUError::VM`] if the resulting address would fall outside
-    /// RAM bounds.
+    /// - [`CPUError::InstructionAddressMisaligned`] — if the resulting PC is
+    ///   not 4-byte aligned (should not occur under normal execution)
+    /// - [`CPUError::VM`] — if the resulting address is outside RAM bounds
+    ///
+    /// # Guarantees
+    ///
+    /// - The PC is advanced only if all checks succeed
+    /// - The PC remains unchanged on error
+    /// - No intermediate invalid state is observable
     pub fn advance_pc(&mut self) -> Result<(), CPUError> {
         self.set_pc(self.get_pc().wrapping_add(4)) // VM has already confirmed that the PC did not exceed the limits
     }
 
     /// Returns the value of register `index` (x0–x31).
     ///
-    /// Forwards the request to the underlying VM.
+    /// This method provides CPU-level access to the architectural register
+    /// file, delegating storage and validation to the underlying
+    /// [`crate::vm::VM`].
     ///
     /// # Errors
     ///
-    /// Returns [`CPUError::VM`] if `index` is out of the valid range (≥ 32).
+    /// - [`CPUError::VM`] — if `index` is out of the valid range (≥ 32)
+    ///
+    /// # Notes
+    ///
+    /// - Register semantics (such as `x0` always reading as zero) are enforced
+    ///   by the VM layer
     pub fn get_x(&self, index: usize) -> Result<u32, CPUError> {
         Ok(self.vm.get_x(index)?)
     }
 
     /// Sets register `index` to `value`.
     ///
-    /// Writes to `x0` are silently ignored, as required by the RISC-V ISA.
-    /// This invariant is enforced by the underlying VM.
+    /// This method provides CPU-level access to the architectural register
+    /// file while preserving the invariants enforced by the underlying
+    /// [`crate::vm::VM`].
+    ///
+    /// Writes to register `x0` are silently ignored, as required by the
+    /// RISC-V ISA.
     ///
     /// # Errors
     ///
-    /// Returns [`CPUError::VM`] if `index` is out of the valid range (≥ 32).
+    /// - [`CPUError::VM`] — if `index` is out of the valid range (≥ 32)
+    ///
+    /// # Guarantees
+    ///
+    /// - The register file is modified only if the operation succeeds
+    /// - Architectural invariants (e.g. `x0 == 0`) are preserved
     pub fn set_x(&mut self, index: usize, value: u32) -> Result<(), CPUError> {
         self.vm.set_x(index, value)?;
         Ok(())
     }
 
-    /// Reads a byte from memory at the given virtual address.
+    /// Reads a byte from the given virtual address.
+    ///
+    /// This method provides CPU-level access to memory and memory-mapped I/O
+    /// (MMIO), delegating the operation to the underlying [`crate::vm::VM`].
+    ///
+    /// In addition to regular RAM accesses, certain address ranges correspond
+    /// to hardware devices (e.g. UART). Reads from these regions may have
+    /// side effects or return device-specific values.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::VM`] — if the underlying VM rejects the access
+    ///   (e.g. address is outside RAM bounds)
+    ///
+    /// # Notes
+    ///
+    /// - This method does not distinguish between RAM and MMIO; that logic is
+    ///   implemented in the VM layer
     pub fn read_u8(&self, addr: u32) -> Result<u8, CPUError> {
         Ok(self.vm.read_u8(addr)?)
     }
 
-    /// Writes a byte to memory at the given virtual address.
+    /// Writes a byte to the given virtual address.
+    ///
+    /// This method provides CPU-level access to memory and memory-mapped I/O
+    /// (MMIO), delegating the operation to the underlying [`crate::vm::VM`].
+    ///
+    /// Writes to certain address ranges may interact with hardware devices
+    /// instead of RAM. For example, writing to the UART transmit register
+    /// results in output being produced.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::VM`] — if the underlying VM rejects the access
+    ///   (e.g. address is outside RAM bounds)
+    ///
+    /// # Guarantees
+    ///
+    /// - The underlying VM ensures memory safety and device semantics
+    /// - No partial writes occur on error
     pub fn write_u8(&mut self, addr: u32, value: u8) -> Result<(), CPUError> {
         self.vm.write_u8(addr, value)?;
         Ok(())
     }
 
-    /// Reads a halfword from memory at the given address.
+    /// Reads a 16-bit halfword from the given virtual address.
+    ///
+    /// This method provides CPU-level access to memory, delegating the
+    /// operation to the underlying [`crate::vm::VM`].
+    ///
+    /// It is typically used by RV32I load instructions such as `LH` and `LHU`.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::VM`] — if the underlying VM rejects the access
+    ///   (e.g. address is outside RAM bounds)
+    ///
+    /// # Notes
+    ///
+    /// - Endianness is little-endian, as defined by the RISC-V specification
+    /// - Alignment requirements are not enforced here; they are handled
+    ///   at the instruction level
     pub fn read_u16(&self, addr: u32) -> Result<u16, CPUError> {
         Ok(self.vm.read_u16(addr)?)
     }
 
-    /// Writes a halfword to memory at the given address.
+    /// Writes a 16-bit halfword to the given virtual address.
+    ///
+    /// This method provides CPU-level access to memory, delegating the
+    /// operation to the underlying [`crate::vm::VM`].
+    ///
+    /// It is typically used by RV32I store instructions such as `SH`.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::VM`] — if the underlying VM rejects the access
+    ///   (e.g. address is outside RAM bounds)
+    ///
+    /// # Guarantees
+    ///
+    /// - The memory is modified only if the operation succeeds
     pub fn write_u16(&mut self, addr: u32, value: u16) -> Result<(), CPUError> {
         self.vm.write_u16(addr, value)?;
         Ok(())
     }
 
-    /// Reads a word from memory at the given address.
+    /// Reads a 32-bit word from the given virtual address.
+    ///
+    /// This method provides CPU-level access to memory, delegating the
+    /// operation to the underlying [`crate::vm::VM`].
+    ///
+    /// It is typically used by RV32I load instructions such as `LW`.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::VM`] — if the underlying VM rejects the access
+    ///   (e.g. address is outside RAM bounds)
+    ///
+    /// # Notes
+    ///
+    /// - Endianness is little-endian, as defined by the RISC-V specification
+    /// - Instruction fetches also rely on word-sized reads via [`CPU::fetch`]
     pub fn read_u32(&self, addr: u32) -> Result<u32, CPUError> {
         Ok(self.vm.read_u32(addr)?)
     }
 
-    /// Writes a word to memory at the given address.
+    /// Writes a 32-bit word to the given virtual address.
+    ///
+    /// This method provides CPU-level access to memory, delegating the
+    /// operation to the underlying [`crate::vm::VM`].
+    ///
+    /// It is typically used by RV32I store instructions such as `SW`.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::VM`] — if the underlying VM rejects the access
+    ///   (e.g. address is outside RAM bounds)
+    ///
+    /// # Guarantees
+    ///
+    /// - The memory is modified only if the operation succeeds
     pub fn write_u32(&mut self, addr: u32, value: u32) -> Result<(), CPUError> {
         self.vm.write_u32(addr, value)?;
         Ok(())
     }
 
-    /// Fetches, decodes and prints one instruction, then advances PC.
-    /// This is a linear disassembly mode (no execute stage).
+    /// Performs a single fetch–decode step and returns the decoded instruction.
+    ///
+    /// This method implements a *linear disassembly* mode: it fetches the
+    /// instruction at the current program counter (PC), decodes it into an
+    /// [`Instruction`], and advances the PC by one instruction (4 bytes),
+    /// without executing it.
+    ///
+    /// Unlike [`CPU::step`], this method does not perform the execute stage
+    /// and has no side effects on registers or memory.
+    ///
+    /// # Returns
+    ///
+    /// The decoded [`Instruction`] corresponding to the current PC.
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::InstructionAddressMisaligned`] — if the PC is not
+    ///   4-byte aligned
+    /// - [`CPUError::VM`] — if memory access fails during fetch
+    /// - [`CPUError::IllegalInstruction`] — if decoding fails
+    ///
+    /// # Guarantees
+    ///
+    /// - No architectural state (registers or memory) is modified
+    /// - The PC is advanced only if fetch and decode succeed
+    ///
+    /// # Notes
+    ///
+    /// - This method is intended for disassembly tools and debugging
+    /// - Control flow instructions (e.g. branches, jumps) are not followed;
+    ///   execution proceeds linearly
     pub fn disassemble(&mut self) -> Result<Instruction, CPUError> {
         let raw = self.fetch()?;
         let instr = self.decode(raw)?;
@@ -243,35 +683,90 @@ impl CPU {
         Ok(instr)
     }
 
-    /// Executes one fetch–decode–execute cycle.
+    /// Executes a single fetch–decode–execute cycle.
+    ///
+    /// This method implements one full step of the CPU pipeline:
+    ///
+    /// ```text
+    /// fetch → decode → execute → (optional PC advance)
+    /// ```
+    ///
+    /// If the CPU is not running (`self.running == false`), this method
+    /// returns immediately without performing any work.
     ///
     /// # PC advancement rules
     ///
-    /// After `execute()` returns, the PC is advanced **only when all three
-    /// conditions hold**:
+    /// After [`CPU::execute`] returns, the program counter (PC) is advanced
+    /// **only when all of the following conditions hold**:
     ///
-    /// 1. The CPU is still running (`self.running == true`). An `ecall` that
-    ///    triggers `exit` sets `running = false` before this check, so we
-    ///    never attempt to advance past the last instruction.
-    /// 2. The PC was **not** modified by the instruction itself. Branch and
-    ///    jump instructions update the PC inside `execute()`; for all other
-    ///    instructions the PC stays at `pc_before` and we step it forward here.
-    /// 3. The resulting address is within RAM. If it isn't, the step fails with
-    ///    [`CPUError::VM`] — which is a genuine error, not a normal halt.
+    /// 1. The CPU is still running (`self.running == true`). Instructions such
+    ///    as `ecall` may stop execution (e.g. program exit) before this step.
+    /// 2. The PC was **not** modified by the executed instruction. Control-flow
+    ///    instructions (e.g. branches and jumps) update the PC directly during
+    ///    execution.
+    /// 3. The resulting address is valid. Bounds checking is delegated to
+    ///    [`CPU::advance_pc`] and ultimately to the underlying
+    ///    [`crate::vm::VM`].
+    ///
+    /// # Errors
+    ///
+    /// - [`CPUError::InstructionAddressMisaligned`] — if the PC is not
+    ///   4-byte aligned during fetch
+    /// - [`CPUError::IllegalInstruction`] — if decoding fails
+    /// - [`CPUError::VM`] — if any memory access or PC update fails
+    ///
+    /// # Guarantees
+    ///
+    /// - At most one instruction is executed
+    /// - The PC is advanced at most once
+    /// - No partial state updates occur on error
+    /// - If `self.running == false`, no state is modified
+    ///
+    /// # Notes
+    ///
+    /// - This method is the core building block of [`CPU::run`]
+    /// - Control flow instructions are responsible for updating the PC
+    ///   explicitly during the execute stage
     pub fn step(&mut self) -> Result<(), CPUError> {
         if !self.running {
             return Ok(());
         }
+
         let pc_before = self.get_pc();
         let raw = self.fetch()?;
         let instr = self.decode(raw)?;
         self.execute(instr)?;
+
         if self.running && self.get_pc() == pc_before {
             self.advance_pc()?;
         }
+
         Ok(())
     }
 
+    /// Runs the CPU until execution stops.
+    ///
+    /// This method repeatedly executes instructions by calling [`CPU::step`]
+    /// in a loop while the CPU is in the running state.
+    ///
+    /// Execution begins by setting `self.running = true` and continues until
+    /// an instruction (e.g. `ecall`) sets it to `false`, or an error occurs.
+    ///
+    /// # Errors
+    ///
+    /// - Propagates any error returned by [`CPU::step`]
+    ///
+    /// # Guarantees
+    ///
+    /// - Instructions are executed sequentially according to [`CPU::step`]
+    /// - Execution stops immediately on error
+    /// - The CPU may stop normally by setting `self.running = false`
+    ///
+    /// # Notes
+    ///
+    /// - This is the primary execution entry point for programs
+    /// - For single-step execution, use [`CPU::step`]
+    /// - For disassembly mode, use [`CPU::run_disassemble`]
     pub fn run(&mut self) -> Result<(), CPUError> {
         self.running = true;
 
@@ -282,6 +777,53 @@ impl CPU {
         Ok(())
     }
 
+    /// Disassembles all executable segments of an ELF image.
+    ///
+    /// This method iterates over each loadable segment in the provided [`ElfImage`]
+    /// and performs a **linear disassembly** of its contents.
+    ///
+    /// For each segment:
+    ///
+    /// 1. The program counter (PC) is set to the segment's start address.
+    /// 2. Instructions are fetched and decoded using [`CPU::disassemble`].
+    /// 3. Each decoded instruction is printed alongside its address.
+    /// 4. The process continues until the end of the segment is reached or an error occurs.
+    ///
+    /// Unlike [`CPU::run`], this method does **not execute instructions** — it only
+    /// decodes and displays them.
+    ///
+    /// # Output
+    ///
+    /// The disassembly is printed to standard output in the form:
+    ///
+    /// ```text
+    /// == Segment 0xXXXXXXXX - 0xXXXXXXXX ==
+    /// 0xXXXXXXXX: <instruction>
+    /// ```
+    ///
+    /// If an error occurs during decoding, the disassembly stops for the current
+    /// segment and reports the failure:
+    ///
+    /// ```text
+    /// Stopped at 0xXXXXXXXX: <error>
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`CPUError`] if setting the initial PC fails
+    /// - Errors during disassembly are handled internally and reported via output
+    ///
+    /// # Notes
+    ///
+    /// - This method performs a **linear sweep disassembly** (no control-flow analysis)
+    /// - Invalid or data regions within a segment may produce decoding errors
+    /// - Each segment is processed independently
+    /// - The CPU `running` state is not used in this mode
+    ///
+    /// # See also
+    ///
+    /// - [`CPU::disassemble`] — disassembles a single instruction
+    /// - [`CPU::run`] — executes instructions instead of decoding them
     pub fn run_disassemble(&mut self, elf: ElfImage) -> Result<(), CPUError> {
         for seg in &elf.segments {
             let start = seg.vaddr;

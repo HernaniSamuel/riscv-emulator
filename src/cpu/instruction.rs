@@ -1,171 +1,670 @@
+//! RV32I instruction decoding and intermediate representation.
+//!
+//! This module defines the [`Instruction`] enum, a canonical, fully-decoded
+//! representation of a RISC-V RV32I instruction.
+//!
+//! # Overview
+//!
+//! The decode stage transforms a raw 32-bit instruction word into an
+//! [`Instruction`] value. This representation is **lossless at the semantic
+//! level** and eliminates all encoding-specific concerns (bitfields,
+//! immediate reconstruction, masking).
+//!
+//! The execution stage (`CPU::execute`) operates exclusively on this enum,
+//! treating it as a stable intermediate representation (IR) of the program.
+//!
+//! # Guarantees
+//!
+//! Decoding enforces the following invariants:
+//!
+//! - Register indices (`rd`, `rs1`, `rs2`) are always in the range `0..32`
+//! - Immediates are fully reconstructed and sign-extended to `i32`
+//! - Shift amounts are masked to 5 bits (`0..31`)
+//! - Instruction variants map 1:1 to RV32I operations
+//!
+//! As a result, the execution stage does not need to perform any additional
+//! decoding, masking, or sign-extension.
+//!
+//! # Design notes
+//!
+//! - The enum acts as a boundary between decoding and execution
+//! - All encoding-specific complexity is confined to the decode stage
+//! - Execution logic can assume well-formed inputs
+//!
+//! # See also
+//!
+//! - [`crate::cpu::CPU`]
+//! - [`crate::vm::VM`]
+
 use std::fmt;
 
-/// Represents a decoded RV32I instruction.
+/// A decoded RV32I instruction.
 ///
-/// Each variant corresponds to a single RISC-V instruction after decoding.
-/// The enum is produced by the CPU decode stage and later consumed by the
-/// execution stage.
+/// This enum represents the result of the decode stage for the
+/// RISC-V Unprivileged ISA (RV32I). Each variant corresponds to a
+/// single architectural instruction, with all operands and immediates
+/// fully decoded and normalized for execution.
 ///
-/// Register indices follow the RISC-V convention:
-/// * `rd`  – destination register
-/// * `rs1` – source register 1
-/// * `rs2` – source register 2
+/// The execution stage (`CPU::execute`) consumes this representation
+/// to update architectural state (register file, memory, and program counter).
 ///
-/// Immediate values (`imm`) are already **sign-extended** to `i32`.
+/// # Execution model
 ///
-/// Shift amounts (`shamt`) are already masked to the valid range.
+/// Instruction semantics are fully defined by each variant.
 ///
-/// This enum only represents **RV32I base ISA** instructions.
+/// - Register writes occur only when specified by the instruction
+/// - Memory access occurs only in load/store instructions
+/// - Program counter updates occur only in control-flow instructions
+/// - The CPU advances PC by 4 for non-control-flow instructions
+///
+/// No additional or implicit side effects exist.
+///
+/// # Field conventions
+///
+/// | Field   | Type  | Meaning                                               |
+/// |---------|-------|-------------------------------------------------------|
+/// | `rd`    | `u8`  | Destination register index (0–31)                     |
+/// | `rs1`   | `u8`  | Source register 1 index (0–31)                        |
+/// | `rs2`   | `u8`  | Source register 2 index (0–31)                        |
+/// | `imm`   | `i32` | Immediate value, sign-extended to 32 bits             |
+/// | `shamt` | `u8`  | Shift amount, masked to bits `[4:0]`                  |
+///
+/// # Architectural invariants
+///
+/// - Register `x0` is hardwired to zero; writes to `rd = 0` are discarded.
+/// - All arithmetic uses two's-complement wrapping semantics.
+///
+/// # Specification
+///
+/// Semantics follow the RISC-V Unprivileged ISA specification (RV32I).
+///
+/// # Coverage
+///
+/// This enum covers the complete RV32I base ISA, including:
+/// - Integer arithmetic and logical instructions
+/// - Control flow (branches and jumps)
+/// - Memory access (loads and stores)
+/// - System (`ECALL`, `EBREAK`) and memory-ordering (`FENCE`, `FENCE.I`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     // =========================================================
     // R-type
     // =========================================================
-    /// Add registers: `rd = rs1 + rs2`
+    /// Integer addition.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] + x[rs2]`
+    ///
+    /// # Effects
+    /// - Writes the 32-bit wrapping sum to register `rd`.
+    ///
+    /// # Notes
+    /// - Overflow wraps silently (two's-complement modular arithmetic).
     Add { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Subtract registers: `rd = rs1 - rs2`
+    /// Integer subtraction.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] - x[rs2]`
+    ///
+    /// # Effects
+    /// - Writes the 32-bit wrapping difference to register `rd`.
+    ///
+    /// # Notes
+    /// - Underflow wraps silently (two's-complement modular arithmetic).
     Sub { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Shift left logical: `rd = rs1 << rs2`
+    /// Shift left logical (register).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] << (x[rs2] & 0x1f)`
+    ///
+    /// # Effects
+    /// - Shifts `x[rs1]` left by the **lower 5 bits** of `x[rs2]`, filling
+    ///   vacated bits with zeros, and writes the result to register `rd`.
+    ///
+    /// # Notes
+    /// - Only the five least-significant bits of `rs2` are used as the shift
+    ///   amount; the upper bits are ignored.
     Sll { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Set if less than (signed)
+    /// Set less than (signed).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] as i32 < x[rs2] as i32) as u32`
+    ///
+    /// # Effects
+    /// - Writes `1` to register `rd` if `x[rs1]` is strictly less than
+    ///   `x[rs2]` under **signed** interpretation; writes `0` otherwise.
     Slt { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Set if less than (unsigned)
+    /// Set less than (unsigned).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] < x[rs2]) as u32`
+    ///
+    /// # Effects
+    /// - Writes `1` to register `rd` if `x[rs1]` is strictly less than
+    ///   `x[rs2]` under **unsigned** interpretation; writes `0` otherwise.
+    ///
+    /// # Notes
+    /// - Differs from [`Instruction::Slt`] when operands have their sign bit set, e.g.
+    ///   `0xFFFF_FFFF` is `-1` (signed) but `u32::MAX` (unsigned).
     Sltu { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Bitwise XOR
+    /// Bitwise XOR (register).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] ^ x[rs2]`
+    ///
+    /// # Effects
+    /// - Writes the bitwise exclusive-OR of `x[rs1]` and `x[rs2]` to
+    ///   register `rd`.
     Xor { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Shift right logical
+    /// Shift right logical (register).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] >> (x[rs2] & 0x1f)`
+    ///
+    /// # Effects
+    /// - Shifts `x[rs1]` right by the **lower 5 bits** of `x[rs2]`, filling
+    ///   vacated bits with **zeros**, and writes the result to register `rd`.
+    ///
+    /// # Notes
+    /// - Logical shift: the most-significant bit is filled with `0`
+    ///   regardless of the sign of `x[rs1]`.  See [`Instruction::Sra`] for
+    ///   sign-preserving right shift.
     Srl { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Shift right arithmetic (sign-preserving)
+    /// Shift right arithmetic (register).
+    ///
+    /// # Semantics
+    /// `x[rd] = ((x[rs1] as i32) >> (x[rs2] & 0x1f)) as u32`
+    ///
+    /// # Effects
+    /// - Shifts `x[rs1]` right by the **lower 5 bits** of `x[rs2]`, filling
+    ///   vacated bits with the **sign bit** of `x[rs1]`, and writes the
+    ///   result to register `rd`.
+    ///
+    /// # Notes
+    /// - Arithmetic shift: preserves the sign of the original value.
+    ///   Contrast with [`Instruction::Srl`], which always fills with zeros.
     Sra { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Bitwise OR
+    /// Bitwise OR (register).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] | x[rs2]`
+    ///
+    /// # Effects
+    /// - Writes the bitwise OR of `x[rs1]` and `x[rs2]` to register `rd`.
     Or { rd: u8, rs1: u8, rs2: u8 },
 
-    /// Bitwise AND
+    /// Bitwise AND (register).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] & x[rs2]`
+    ///
+    /// # Effects
+    /// - Writes the bitwise AND of `x[rs1]` and `x[rs2]` to register `rd`.
     And { rd: u8, rs1: u8, rs2: u8 },
 
     // =========================================================
     // I-type ALU
     // =========================================================
-    /// Add immediate: `rd = rs1 + imm`
+    /// Add immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] + imm`
+    ///
+    /// # Effects
+    /// - Writes the 32-bit wrapping sum of `x[rs1]` and the sign-extended
+    ///   12-bit immediate to register `rd`.
+    ///
+    /// # Notes
+    /// - The canonical no-op `NOP` is encoded as `ADDI x0, x0, 0`.
+    /// - Overflow wraps silently (two's-complement modular arithmetic).
     Addi { rd: u8, rs1: u8, imm: i32 },
 
-    /// Set if less than immediate (signed)
+    /// Set less than immediate (signed).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] as i32 < imm) as u32`
+    ///
+    /// # Effects
+    /// - Writes `1` to register `rd` if `x[rs1]` is strictly less than the
+    ///   sign-extended immediate under **signed** comparison; writes `0`
+    ///   otherwise.
     Slti { rd: u8, rs1: u8, imm: i32 },
 
-    /// Set if less than immediate (unsigned)
+    /// Set less than immediate (unsigned).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] < imm as u32) as u32`
+    ///
+    /// # Effects
+    /// - Writes `1` to register `rd` if `x[rs1]` is strictly less than the
+    ///   immediate reinterpreted as an **unsigned** 32-bit value; writes `0`
+    ///   otherwise.
+    ///
+    /// # Notes
+    /// - The immediate is first sign-extended to 32 bits and then compared
+    ///   as an unsigned value, so `SLTIU rd, rs1, 1` tests whether `x[rs1]`
+    ///   is equal to zero.
     Sltiu { rd: u8, rs1: u8, imm: i32 },
 
-    /// XOR immediate
+    /// XOR immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] ^ imm as u32`
+    ///
+    /// # Effects
+    /// - Writes the bitwise XOR of `x[rs1]` and the sign-extended immediate
+    ///   to register `rd`.
+    ///
+    /// # Notes
+    /// - `XORI rd, rs1, -1` (all-ones immediate) produces the bitwise NOT
+    ///   of `x[rs1]`.
     Xori { rd: u8, rs1: u8, imm: i32 },
 
-    /// OR immediate
+    /// OR immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] | imm as u32`
+    ///
+    /// # Effects
+    /// - Writes the bitwise OR of `x[rs1]` and the sign-extended immediate
+    ///   to register `rd`.
     Ori { rd: u8, rs1: u8, imm: i32 },
 
-    /// AND immediate
+    /// AND immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] & imm as u32`
+    ///
+    /// # Effects
+    /// - Writes the bitwise AND of `x[rs1]` and the sign-extended immediate
+    ///   to register `rd`.
     Andi { rd: u8, rs1: u8, imm: i32 },
 
-    /// Shift left logical immediate
+    /// Shift left logical immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] << (shamt & 0x1f)`
+    ///
+    /// # Effects
+    /// - Shifts `x[rs1]` left by `shamt` bit positions, filling vacated
+    ///   bits with zeros, and writes the result to register `rd`.
+    ///
+    /// # Notes
+    /// - `shamt` is pre-masked to bits `[4:0]` during decoding; values
+    ///   above 31 are not representable in the encoding.
     Slli { rd: u8, rs1: u8, shamt: u8 },
 
-    /// Shift right logical immediate
+    /// Shift right logical immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] >> (shamt & 0x1f)`
+    ///
+    /// # Effects
+    /// - Shifts `x[rs1]` right by `shamt` bit positions, filling vacated
+    ///   bits with **zeros**, and writes the result to register `rd`.
     Srli { rd: u8, rs1: u8, shamt: u8 },
 
-    /// Shift right arithmetic immediate
+    /// Shift right arithmetic immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = ((x[rs1] as i32) >> (shamt & 0x1f)) as u32`
+    ///
+    /// # Effects
+    /// - Shifts `x[rs1]` right by `shamt` bit positions, filling vacated
+    ///   bits with the **sign bit** of `x[rs1]`, and writes the result to
+    ///   register `rd`.
     Srai { rd: u8, rs1: u8, shamt: u8 },
 
     // =========================================================
     // Loads
     // =========================================================
-    /// Load byte (sign-extended)
+    /// Load byte (sign-extended).
+    ///
+    /// # Semantics
+    /// `x[rd] = sign_extend(mem[x[rs1] + imm][7:0])`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Reads 1 byte from memory at that address.
+    /// - Sign-extends the byte to 32 bits and writes the result to register
+    ///   `rd`.
     Lb { rd: u8, rs1: u8, imm: i32 },
 
-    /// Load halfword (sign-extended)
+    /// Load halfword (sign-extended).
+    ///
+    /// # Semantics
+    /// `x[rd] = sign_extend(mem[x[rs1] + imm][15:0])`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Reads 2 bytes (a halfword) from memory at that address.
+    /// - Sign-extends the 16-bit value to 32 bits and writes the result to
+    ///   register `rd`.
     Lh { rd: u8, rs1: u8, imm: i32 },
 
-    /// Load word
+    /// Load word.
+    ///
+    /// # Semantics
+    /// `x[rd] = mem[x[rs1] + imm][31:0]`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Reads 4 bytes (a full word) from memory at that address.
+    /// - Writes the 32-bit value directly to register `rd`; no
+    ///   sign-extension is needed.
     Lw { rd: u8, rs1: u8, imm: i32 },
 
-    /// Load byte (zero-extended)
+    /// Load byte (zero-extended).
+    ///
+    /// # Semantics
+    /// `x[rd] = zero_extend(mem[x[rs1] + imm][7:0])`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Reads 1 byte from memory at that address.
+    /// - **Zero-extends** the byte to 32 bits (upper 24 bits are cleared)
+    ///   and writes the result to register `rd`.
+    ///
+    /// # Notes
+    /// - Differs from [`Instruction::Lb`] only in the extension strategy: `LBU` always
+    ///   produces a non-negative value in `rd`.
     Lbu { rd: u8, rs1: u8, imm: i32 },
 
-    /// Load halfword (zero-extended)
+    /// Load halfword (zero-extended).
+    ///
+    /// # Semantics
+    /// `x[rd] = zero_extend(mem[x[rs1] + imm][15:0])`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Reads 2 bytes from memory at that address.
+    /// - **Zero-extends** the halfword to 32 bits (upper 16 bits are
+    ///   cleared) and writes the result to register `rd`.
+    ///
+    /// # Notes
+    /// - Differs from [`Instruction::Lh`] only in the extension strategy: `LHU` always
+    ///   produces a non-negative value in `rd`.
     Lhu { rd: u8, rs1: u8, imm: i32 },
 
     // =========================================================
     // Stores
     // =========================================================
-    /// Store byte
+    /// Store byte.
+    ///
+    /// # Semantics
+    /// `mem[x[rs1] + imm] = x[rs2][7:0]`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Writes the **least-significant byte** of `x[rs2]` to memory at
+    ///   that address.
+    /// - Does not modify any register.
     Sb { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Store halfword
+    /// Store halfword.
+    ///
+    /// # Semantics
+    /// `mem[x[rs1] + imm] = x[rs2][15:0]`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Writes the **least-significant halfword** (2 bytes) of `x[rs2]`
+    ///   to memory at that address.
+    /// - Does not modify any register.
     Sh { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Store word
+    /// Store word.
+    ///
+    /// # Semantics
+    /// `mem[x[rs1] + imm] = x[rs2][31:0]`
+    ///
+    /// # Effects
+    /// - Computes the effective address `x[rs1] + imm` using wrapping
+    ///   addition.
+    /// - Writes all 4 bytes of `x[rs2]` to memory at that address.
+    /// - Does not modify any register.
     Sw { rs1: u8, rs2: u8, imm: i32 },
 
     // =========================================================
     // Branches
     // =========================================================
-    /// Branch if equal
+    /// Branch if equal.
+    ///
+    /// # Semantics
+    /// `if x[rs1] == x[rs2] { PC = PC + imm }`
+    ///
+    /// # Effects
+    /// - Compares `x[rs1]` and `x[rs2]` for equality.
+    /// - **Taken**: sets the PC to `PC + imm` (PC-relative, wrapping).
+    /// - **Not taken**: PC is left unmodified; the caller advances it by 4.
+    /// - Does not access memory.
+    /// - Does not modify any register.
     Beq { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Branch if not equal
+    /// Branch if not equal.
+    ///
+    /// # Semantics
+    /// `if x[rs1] != x[rs2] { PC = PC + imm }`
+    ///
+    /// # Effects
+    /// - Compares `x[rs1]` and `x[rs2]` for inequality.
+    /// - **Taken**: sets the PC to `PC + imm` (PC-relative, wrapping).
+    /// - **Not taken**: PC is left unmodified.
+    /// - Does not access memory.
+    /// - Does not modify any register.
     Bne { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Branch if less than (signed)
+    /// Branch if less than (signed).
+    ///
+    /// # Semantics
+    /// `if (x[rs1] as i32) < (x[rs2] as i32) { PC = PC + imm }`
+    ///
+    /// # Effects
+    /// - Compares `x[rs1]` and `x[rs2]` as **signed** 32-bit integers.
+    /// - **Taken**: sets the PC to `PC + imm` (PC-relative, wrapping).
+    /// - **Not taken**: PC is left unmodified.
+    /// - Does not access memory.
+    /// - Does not modify any register.
     Blt { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Branch if greater or equal (signed)
+    /// Branch if greater than or equal (signed).
+    ///
+    /// # Semantics
+    /// `if (x[rs1] as i32) >= (x[rs2] as i32) { PC = PC + imm }`
+    ///
+    /// # Effects
+    /// - Compares `x[rs1]` and `x[rs2]` as **signed** 32-bit integers.
+    /// - **Taken**: sets the PC to `PC + imm` (PC-relative, wrapping).
+    /// - **Not taken**: PC is left unmodified.
+    /// - Does not access memory.
+    /// - Does not modify any register.
     Bge { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Branch if less than (unsigned)
+    /// Branch if less than (unsigned).
+    ///
+    /// # Semantics
+    /// `if x[rs1] < x[rs2] { PC = PC + imm }`
+    ///
+    /// # Effects
+    /// - Compares `x[rs1]` and `x[rs2]` as **unsigned** 32-bit integers.
+    /// - **Taken**: sets the PC to `PC + imm` (PC-relative, wrapping).
+    /// - **Not taken**: PC is left unmodified.
+    /// - Does not access memory.
+    /// - Does not modify any register.
     Bltu { rs1: u8, rs2: u8, imm: i32 },
 
-    /// Branch if greater or equal (unsigned)
+    /// Branch if greater than or equal (unsigned).
+    ///
+    /// # Semantics
+    /// `if x[rs1] >= x[rs2] { PC = PC + imm }`
+    ///
+    /// # Effects
+    /// - Compares `x[rs1]` and `x[rs2]` as **unsigned** 32-bit integers.
+    /// - **Taken**: sets the PC to `PC + imm` (PC-relative, wrapping).
+    /// - **Not taken**: PC is left unmodified.
+    /// - Does not access memory.
+    /// - Does not modify any register.
     Bgeu { rs1: u8, rs2: u8, imm: i32 },
 
     // =========================================================
     // U-type
     // =========================================================
-    /// Load upper immediate
+    /// Load upper immediate.
+    ///
+    /// # Semantics
+    /// `x[rd] = imm`
+    ///
+    /// # Effects
+    /// - Writes the 20-bit upper immediate (already shifted left by 12
+    ///   during encoding, stored here as a full `i32`) directly to register
+    ///   `rd` as a `u32`.
+    ///
+    /// # Notes
+    /// - Typically paired with [`Instruction::Addi`] to materialize a full 32-bit
+    ///   constant: `LUI` loads the upper 20 bits, `ADDI` fills in the lower
+    ///   12 bits.
     Lui { rd: u8, imm: i32 },
 
-    /// Add upper immediate to PC
+    /// Add upper immediate to PC.
+    ///
+    /// # Semantics
+    /// `x[rd] = PC + imm`
+    ///
+    /// # Effects
+    /// - Adds the upper immediate to the **current PC** (the address of
+    ///   this instruction) using wrapping addition and writes the result to
+    ///   register `rd`.
+    ///
+    /// # Notes
+    /// - Useful for computing PC-relative addresses, e.g. for position-
+    ///   independent code or to call nearby functions via `AUIPC` + `JALR`.
     Auipc { rd: u8, imm: i32 },
 
     // =========================================================
     // Jumps
     // =========================================================
-    /// Jump and link
+    /// Jump and link.
+    ///
+    /// # Semantics
+    /// `x[rd] = PC + 4; PC = PC + imm`
+    ///
+    /// # Effects
+    /// - Saves the **return address** (`PC + 4`) to register `rd`.
+    /// - Jumps unconditionally to `PC + imm` (PC-relative, wrapping).
+    /// - Does not access memory.
+    ///
+    /// # Notes
+    /// - When `rd = x0` the return address is discarded; this encodes an
+    ///   unconditional jump without a link.
+    /// - The 20-bit immediate allows a ±1 MiB PC-relative range.
     Jal { rd: u8, imm: i32 },
 
-    /// Jump and link register
+    /// Jump and link register.
+    ///
+    /// # Semantics
+    /// `x[rd] = PC + 4; PC = (x[rs1] + imm) & !1`
+    ///
+    /// # Effects
+    /// - Saves the **return address** (`PC + 4`) to register `rd`.
+    /// - Computes the target as `x[rs1] + imm` (wrapping) and **clears
+    ///   bit 0** to ensure 2-byte alignment, then sets the PC to that
+    ///   target.
+    /// - Does not access memory.
+    ///
+    /// # Notes
+    /// - Clearing bit 0 is mandated by the RISC-V spec to support
+    ///   compressed-instruction alignment; it is always applied even if the
+    ///   C extension is absent.
+    /// - `JALR x0, x1, 0` is the canonical function-return sequence.
     Jalr { rd: u8, rs1: u8, imm: i32 },
 
     // =========================================================
     // System
     // =========================================================
-    /// Environment call
+    /// Environment call.
+    ///
+    /// # Semantics
+    /// Transfers control to the execution environment (OS / emulator) to
+    /// request a service.
+    ///
+    /// # Effects
+    /// - Reads the **syscall number** from register `x17` (`a7`).
+    /// - Dispatches to the appropriate handler:
+    ///   - **Syscall 93 (`exit`)**: reads the exit code from `x10` (`a0`),
+    ///     stores it via `set_exit_code`, and halts the CPU (`set_running(false)`).
+    ///   - **Any other number**: returns [`crate::cpu::CPUError::UnsupportedSyscall`].
+    /// - Does not modify the PC directly (the CPU stops or errors before
+    ///   the normal PC-advance step).
+    ///
+    /// # Errors
+    /// Returns [`crate::cpu::CPUError::UnsupportedSyscall`] when the syscall number in
+    /// `x17` is not recognised by the emulator.
     Ecall,
 
-    /// Breakpoint
+    /// Breakpoint.
+    ///
+    /// # Semantics
+    /// Signals the execution environment that a breakpoint has been reached.
+    ///
+    /// # Effects
+    /// - Currently a **no-op** in this emulator (pending a debugger
+    ///   integration).
+    /// - Does not modify any register, memory, or the PC.
+    ///
+    /// # Notes
+    /// - Future implementations may pause execution and invoke a debugger
+    ///   callback instead of silently continuing.
     Ebreak,
 
     // =========================================================
     // Memory ordering
     // =========================================================
-    /// Memory fence
+    /// Memory fence.
+    ///
+    /// # Semantics
+    /// Orders memory I/O accesses visible to other hardware threads or
+    /// devices.
+    ///
+    /// # Effects
+    /// - **No-op** in this single-threaded in-order emulator.
+    /// - Does not modify any register, memory, or the PC.
+    ///
+    /// # Notes
+    /// - On a real multi-core RISC-V implementation, `FENCE` enforces
+    ///   ordering of predecessor memory operations before successor ones.
+    ///   In a single-threaded emulator, the sequential execution model
+    ///   makes this guarantee trivially true.
     Fence,
 
-    /// Instruction cache fence
+    /// Instruction cache fence.
+    ///
+    /// # Semantics
+    /// Ensures that any stores to instruction memory are visible to
+    /// subsequent instruction fetches.
+    ///
+    /// # Effects
+    /// - **No-op** in this emulator; instruction memory is always coherent
+    ///   because there is no separate instruction cache.
+    /// - Does not modify any register, memory, or the PC.
+    ///
+    /// # Notes
+    /// - Required on real hardware after self-modifying code or dynamic
+    ///   code generation before the new instructions are executed.
     FenceI,
 }
 

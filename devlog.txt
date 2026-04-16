@@ -239,3 +239,13 @@ Ok, my plans was to have an assistent, not a code reviewer that looks loke an AT
 Now it's time to make it run cargo doc and deploy the updated docs after each commit then I don't have to make it manually after each commit
 So, my documentation is in the higher level of quality, damn I'm so proud of it!
 My point is getting well proved: If we want to use AI, it should have the higher quality as possible!
+
+Day 21 - 16/04/2026
+Today I'll finish this first version of the documentation by documentating the CPU and RiscV modules and main too, then I'll remake the lib.rs and readme again
+Then finally I can proceed to the M extension and then Zicsr and Zifencei and finally the FreeRTOS will run!
+Now I'm documenting and checking the enum Instruction documentation... Claude made this part but the free limit has been reached at the moment he finished it
+so I'm really surprised about how AI is good in documenting code! It's just paste the code part that you want to document and read the AI answer to see if it's correct and professional!
+After ~8hours of hard work, the documentation (and Rv32I) is DONE! This is a complete RISC-V RV32I emulator with high quality and software engineering!
+I spent 21 days on it, but I spent 10 days making that md stuff which I thought would be the official documentation of the project since I didn't know about the existence of the cargo doc...
+Another benefit of making this emulator is the English language... I never had to read and write so mutch as I made in this project! It's good for practice and improve English skills
+Monday I'll start implementing the M extension, I guess it's only 8 additional instructions, easy compared with I made here!

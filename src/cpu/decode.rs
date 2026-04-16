@@ -1,60 +1,122 @@
-//! RISC-V RV32I instruction decoder.
+//! RV32I instruction decoder.
 //!
-//! This module converts raw 32-bit instructions into strongly typed
-//! [`Instruction`] enums used by the execution stage.
-
+//! This module implements the **decode stage** of a minimal RISC-V RV32I CPU.
+//!
+//! It translates 32-bit raw instruction words (fetched from memory) into a
+//! strongly-typed [`Instruction`] enum, which represents the **fully decoded
+//! architectural operation** ready for execution.
+//!
+//! # Role in the CPU pipeline
+//!
+//! The CPU follows a simple 3-stage model:
+//! - Fetch: reads a 32-bit instruction from memory
+//! - Decode: converts the raw instruction into [`Instruction`] (this module)
+//! - Execute: applies the decoded instruction to architectural state
+//!
+//! # Design properties
+//!
+//! - **Pure decoding**: no mutation of CPU state, memory, or registers
+//! - **No speculation**: invalid encodings are rejected immediately
+//! - **RV32I only**: no support for M/A/F/C extensions
+//! - **Aligned instructions only**: assumes 32-bit instruction words
+//!
+//! # Encoding coverage
+//!
+//! Supports the full RV32I base ISA:
+//! - R-type: arithmetic and logical register-register operations
+//! - I-type: immediate ALU operations, loads, and JALR
+//! - S-type: stores
+//! - B-type: conditional branches
+//! - U-type: LUI and AUIPC
+//! - J-type: JAL
+//! - System: ECALL, EBREAK
+//! - FENCE / FENCE.I
+//!
+//! # Immediate handling
+//!
+//! All immediates are decoded and sign-extended according to the RISC-V spec:
+//! - I-type: 12-bit signed immediate
+//! - S-type: split immediate reconstruction
+//! - B-type: bit-rearranged branch offset
+//! - U-type: upper 20 bits (left-shifted by 12)
+//! - J-type: 20-bit signed PC-relative offset
+//!
+//! # Error model
+//!
+//! Invalid encodings result in [`CPUError::IllegalInstruction`], including:
+//! - Unknown opcode
+//! - Invalid funct3/funct7 combinations
+//! - Unsupported instruction variants (e.g. RV32M extensions)
+//!
+//! # Notes
+//!
+//! - Register indices are not validated here (handled at execution stage)
+//! - `x0` write suppression is enforced during execution, not decode
+//! - This decoder does not implement the compressed ISA (RVC)
+//!
 use crate::cpu::instruction::Instruction;
 use crate::cpu::{CPU, CPUError};
 
 impl CPU {
-    /// Decodes a raw 32-bit RISC-V instruction into a structured [Instruction] enum.
+    /// Decodes a raw 32-bit RISC-V instruction into a structured [`Instruction`] enum.
     ///
     /// This function implements the RV32I base integer instruction decoding logic.
     /// It extracts opcode, funct3, funct7, register indices, and immediates,
-    /// then maps them into the corresponding [Instruction] variant.
+    /// then maps them into the corresponding [`Instruction`] variant.
     ///
-    /// The decoder is pure: it does not modify CPU state, memory, or registers.
+    /// The decoder is **pure**: it does not modify CPU state, memory, or registers.
     /// It only interprets the provided instruction word.
     ///
     /// # Arguments
     ///
-    /// * instruction - A 32-bit raw instruction fetched from memory.
+    /// * `instruction` - A 32-bit raw instruction fetched from memory.
     ///
     /// # Returns
     ///
-    /// * Ok(Instruction) if the instruction is recognized and successfully decoded.
-    /// * Err(CPUError::IllegalInstruction) if the opcode or encoding is not supported.
+    /// * `Ok(Instruction)` if the instruction is recognized and successfully decoded.
+    /// * `Err(CPUError::IllegalInstruction)` if the opcode or encoding is not supported.
     ///
     /// # Supported Instruction Classes
     ///
     /// * R-type (ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU)
     /// * I-type (ADDI, SLLI, SRLI, SRAI)
     /// * Loads (LB, LH, LW, LBU, LHU)
-    /// * Stores (SW)
-    /// * Branches (BEQ, BNE)
+    /// * Stores (SB, SH, SW)
+    /// * Branches (BEQ, BNE, BLT, BGE, BLTU, BGEU)
     /// * Upper immediates (LUI, AUIPC)
     /// * Jumps (JAL, JALR)
     /// * System (ECALL, EBREAK)
-    /// * Fence (FENCE)
+    /// * Fence (FENCE, FENCE.I)
     ///
     /// # Errors
     ///
-    /// Returns [CPUError::IllegalInstruction] when:
+    /// Returns [`CPUError::IllegalInstruction`] when:
     ///
     /// * The opcode is not part of RV32I
     /// * funct3 or funct7 combination is invalid
-    /// * The instruction belongs to an unsupported extension (e.g., RV32M)
+    /// * The instruction belongs to an unsupported extension (e.g. RV32M)
     ///
     /// # Example
     ///
-    /// /// # use riscv::*; /// # let mut cpu = /* create CPU */ unimplemented!(); /// let raw = 0x00500093; // addi x1, x0, 5 /// let instr = cpu.decode(raw).unwrap(); /// /// assert_eq!( /// instr, /// Instruction::Addi { /// rd: 1, /// rs1: 0, /// imm: 5 /// } /// ); ///
+    /// ```rust
+    /// use riscv::cpu::instruction::Instruction;
+    ///
+    /// # use riscv::cpu::CPU;
+    /// # use riscv::risc_v::ElfImage;
+    /// # let elf = ElfImage { entry: 0, segments: vec![] };
+    /// # let mut cpu = CPU::new(elf, 4).unwrap();
+    ///
+    /// let raw = 0x00500093;
+    /// let instr = cpu.decode(raw).unwrap();
+    ///
+    /// assert!(matches!(instr, Instruction::Addi { rd: 1, rs1: 0, imm: 5 }));
+    /// ```
     ///
     /// # Notes
     ///
     /// * Immediates are sign-extended according to the RISC-V specification.
     /// * Register indices are not validated here; execution stage handles that.
     /// * This decoder assumes 32-bit aligned instructions (no compressed ISA).
-    ///
     pub fn decode(&mut self, instruction: u32) -> Result<Instruction, CPUError> {
         let opcode = instruction & 0x7f;
         let rd = ((instruction >> 7) & 0x1f) as u8;
@@ -144,12 +206,9 @@ impl CPU {
                     imm: imm_i,
                 },
 
+                0x1 if funct7 == 0x00 => Instruction::Slli { rd, rs1, shamt },
                 0x1 => {
-                    if funct7 == 0x00 {
-                        Instruction::Slli { rd, rs1, shamt }
-                    } else {
-                        return Err(CPUError::IllegalInstruction(instruction));
-                    }
+                    return Err(CPUError::IllegalInstruction(instruction));
                 }
 
                 0x5 => match funct7 {
@@ -253,16 +312,13 @@ impl CPU {
             // ================= J =================
             0b1101111 => Instruction::Jal { rd, imm: imm_j },
 
+            0b1100111 if funct3 == 0x0 => Instruction::Jalr {
+                rd,
+                rs1,
+                imm: imm_i,
+            },
             0b1100111 => {
-                if funct3 == 0x0 {
-                    Instruction::Jalr {
-                        rd,
-                        rs1,
-                        imm: imm_i,
-                    }
-                } else {
-                    return Err(CPUError::IllegalInstruction(instruction));
-                }
+                return Err(CPUError::IllegalInstruction(instruction));
             }
 
             // ================= FENCE =================
@@ -312,7 +368,7 @@ mod tests {
 
     // Assemble an R-type instruction: funct7 | rs2 | rs1 | funct3 | rd | opcode
     fn r_type(opcode: u32, funct3: u32, funct7: u32, rd: u8, rs1: u8, rs2: u8) -> u32 {
-        ((funct7 as u32) << 25)
+        (funct7 << 25)
             | ((rs2 as u32) << 20)
             | ((rs1 as u32) << 15)
             | (funct3 << 12)
