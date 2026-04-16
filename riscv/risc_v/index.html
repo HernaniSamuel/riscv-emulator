@@ -1,1 +1,86 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `risc_v` mod in crate `riscv`."><title>riscv::risc_v - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module risc_v</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module risc_v</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate riscv</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">riscv</a></div><h1>Module <span>risc_v</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/riscv/risc_v.rs.html#1-159">Source</a> </span></div><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ElfImage.html" title="struct riscv::risc_v::ElfImage">ElfImage</a></dt><dt><a class="struct" href="struct.ElfSegment.html" title="struct riscv::risc_v::ElfSegment">ElfSegment</a></dt><dt><a class="struct" href="struct.RiscV.html" title="struct riscv::risc_v::RiscV">RiscV</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.RiscVError.html" title="enum riscv::risc_v::RiscVError">RiscV<wbr>Error</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.read_elf.html" title="fn riscv::risc_v::read_elf">read_<wbr>elf</a></dt></dl></section></div></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="RISC-V runtime and ELF loader."><title>riscv::risc_v - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module risc_v</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module risc_v</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#architecture-role" title="Architecture role">Architecture role</a></li><li><a href="#supported-format" title="Supported format">Supported format</a></li><li><a href="#safety-model" title="Safety model">Safety model</a></li><li><a href="#memory-model" title="Memory model">Memory model</a></li><li><a href="#error-handling" title="Error handling">Error handling</a></li><li><a href="#design-notes" title="Design notes">Design notes</a></li><li><a href="#riscv-runtime" title="RiscV runtime">RiscV runtime</a></li><li><a href="#example" title="Example">Example</a></li><li><a href="#compliance" title="Compliance">Compliance</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate riscv</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">riscv</a></div><h1>Module <span>risc_v</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/riscv/risc_v.rs.html#1-661">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>RISC-V runtime and ELF loader.</p>
+<p>This module provides the <strong>system integration layer</strong> between a parsed
+RISC-V ELF binary and the virtual CPU execution environment.</p>
+<p>It is responsible for:</p>
+<ul>
+<li>Parsing ELF32 binaries</li>
+<li>Validating RISC-V executable format constraints</li>
+<li>Extracting loadable segments (<code>PT_LOAD</code>)</li>
+<li>Building an <a href="struct.ElfImage.html" title="struct riscv::risc_v::ElfImage"><code>ElfImage</code></a> representation</li>
+<li>Initializing the <a href="../cpu/struct.CPU.html" title="struct riscv::cpu::CPU"><code>CPU</code></a> with a ready-to-run memory layout</li>
+</ul>
+<h2 id="architecture-role"><a class="doc-anchor" href="#architecture-role">§</a>Architecture role</h2>
+<p>This module sits <em>above</em> the CPU core and acts as the runtime bootstrap:</p>
+<div class="example-wrap"><pre class="language-text"><code>ELF file → ELF parser → ElfImage → CPU → Execute loop</code></pre></div>
+<p>It does <strong>not implement execution or decoding logic</strong>. Those are handled
+by the CPU core.</p>
+<h2 id="supported-format"><a class="doc-anchor" href="#supported-format">§</a>Supported format</h2>
+<p>This loader supports a strict subset of ELF:</p>
+<ul>
+<li>ELF32 only</li>
+<li>Little-endian only</li>
+<li>RISC-V machine type (<code>EM_RISCV = 243</code>)</li>
+<li>Loadable segments only (<code>PT_LOAD</code>)</li>
+</ul>
+<p>Unsupported features include:</p>
+<ul>
+<li>ELF64 binaries</li>
+<li>Big-endian ELF files</li>
+<li>Dynamic linking (shared objects)</li>
+<li>Relocations</li>
+<li>Non-loadable program segments</li>
+</ul>
+<h2 id="safety-model"><a class="doc-anchor" href="#safety-model">§</a>Safety model</h2>
+<p>ELF parsing uses low-level binary casting (<code>repr(C)</code> structs + pointer reads).
+This is safe under the assumption that:</p>
+<ul>
+<li>Input is validated as ELF32 before casting</li>
+<li>Program header bounds are checked before slicing</li>
+<li>All offsets are verified against input buffer size</li>
+</ul>
+<p>Invalid or malformed binaries result in <a href="enum.RiscVError.html" title="enum riscv::risc_v::RiscVError"><code>RiscVError</code></a>.</p>
+<h2 id="memory-model"><a class="doc-anchor" href="#memory-model">§</a>Memory model</h2>
+<p>Each <code>PT_LOAD</code> segment is mapped into an <a href="struct.ElfSegment.html" title="struct riscv::risc_v::ElfSegment"><code>ElfSegment</code></a> containing:</p>
+<ul>
+<li>Virtual address (<code>vaddr</code>)</li>
+<li>Raw segment data</li>
+<li>Declared memory size (<code>mem_size</code>)</li>
+</ul>
+<p>The CPU is responsible for placing these segments into its memory space.</p>
+<h2 id="error-handling"><a class="doc-anchor" href="#error-handling">§</a>Error handling</h2>
+<p>ELF validation and runtime initialization errors are reported via <a href="enum.RiscVError.html" title="enum riscv::risc_v::RiscVError"><code>RiscVError</code></a>:</p>
+<ul>
+<li><a href="enum.RiscVError.html#variant.NotElf" title="variant riscv::risc_v::RiscVError::NotElf"><code>crate::risc_v::RiscVError::NotElf</code></a> → invalid ELF signature</li>
+<li><a href="enum.RiscVError.html#variant.Not32Bit" title="variant riscv::risc_v::RiscVError::Not32Bit"><code>crate::risc_v::RiscVError::Not32Bit</code></a> → ELF64 or invalid class</li>
+<li><a href="enum.RiscVError.html#variant.WrongEndian" title="variant riscv::risc_v::RiscVError::WrongEndian"><code>crate::risc_v::RiscVError::WrongEndian</code></a> → big-endian ELF</li>
+<li><a href="enum.RiscVError.html#variant.NotRiscV" title="variant riscv::risc_v::RiscVError::NotRiscV"><code>crate::risc_v::RiscVError::NotRiscV</code></a> → non-RISC-V machine type</li>
+<li><a href="enum.RiscVError.html#variant.InvalidProgramHeader" title="variant riscv::risc_v::RiscVError::InvalidProgramHeader"><code>crate::risc_v::RiscVError::InvalidProgramHeader</code></a> → malformed or out-of-bounds program headers</li>
+<li><a href="enum.RiscVError.html#variant.CPU" title="variant riscv::risc_v::RiscVError::CPU"><code>crate::risc_v::RiscVError::CPU</code></a> → errors propagated from CPU initialization</li>
+</ul>
+<h2 id="design-notes"><a class="doc-anchor" href="#design-notes">§</a>Design notes</h2>
+<ul>
+<li>Uses zero-copy header parsing for performance (unsafe pointer casting)</li>
+<li>Converts only <code>PT_LOAD</code> segments into executable memory regions</li>
+<li>Keeps ELF representation decoupled from CPU memory layout</li>
+</ul>
+<h2 id="riscv-runtime"><a class="doc-anchor" href="#riscv-runtime">§</a>RiscV runtime</h2>
+<p>The <a href="struct.RiscV.html" title="struct riscv::risc_v::RiscV"><code>RiscV</code></a> struct acts as a <strong>high-level runtime wrapper</strong> around the CPU.
+It is responsible for:</p>
+<ul>
+<li>Owning the CPU instance</li>
+<li>Bootstrapping execution from an ELF image</li>
+<li>Providing a clean entry point for simulation</li>
+</ul>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>elf = read_elf(<span class="kw-2">&amp;</span>binary_data)<span class="question-mark">?</span>;
+
+<span class="kw">let </span><span class="kw-2">mut </span>rv = RiscV::new(elf, <span class="number">4096</span>)<span class="question-mark">?</span>;
+
+rv.cpu.run()<span class="question-mark">?</span>;</code></pre></div><h2 id="compliance"><a class="doc-anchor" href="#compliance">§</a>Compliance</h2>
+<p>This loader targets a minimal RISC-V execution environment:</p>
+<ul>
+<li>RV32I binaries only</li>
+<li>Static ELF executables</li>
+<li>No runtime linking or dynamic loader support</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ElfImage.html" title="struct riscv::risc_v::ElfImage">ElfImage</a></dt><dd>In-memory representation of a fully parsed ELF binary.</dd><dt><a class="struct" href="struct.ElfSegment.html" title="struct riscv::risc_v::ElfSegment">ElfSegment</a></dt><dd>In-memory representation of a loadable ELF segment.</dd><dt><a class="struct" href="struct.RiscV.html" title="struct riscv::risc_v::RiscV">RiscV</a></dt><dd>Top-level RISC-V virtual machine runtime.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.RiscVError.html" title="enum riscv::risc_v::RiscVError">RiscV<wbr>Error</a></dt><dd>Errors that can occur during ELF loading and RISC-V system initialization.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.read_elf.html" title="fn riscv::risc_v::read_elf">read_<wbr>elf</a></dt><dd>Parses a raw ELF32 binary into an executable <a href="struct.ElfImage.html" title="struct riscv::risc_v::ElfImage"><code>ElfImage</code></a>.</dd></dl></section></div></main></body></html>

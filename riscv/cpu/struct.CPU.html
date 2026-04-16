@@ -1,135 +1,546 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A single-core RV32I CPU."><title>CPU in riscv::cpu - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">CPU</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">CPU</a></h2><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.advance_pc" title="advance_pc">advance_pc</a></li><li><a href="#method.decode" title="decode">decode</a></li><li><a href="#method.disassemble" title="disassemble">disassemble</a></li><li><a href="#method.execute" title="execute">execute</a></li><li><a href="#method.fetch" title="fetch">fetch</a></li><li><a href="#method.get_exit_code" title="get_exit_code">get_exit_code</a></li><li><a href="#method.get_pc" title="get_pc">get_pc</a></li><li><a href="#method.get_x" title="get_x">get_x</a></li><li><a href="#method.is_running" title="is_running">is_running</a></li><li><a href="#method.new" title="new">new</a></li><li><a href="#method.read_u8" title="read_u8">read_u8</a></li><li><a href="#method.read_u16" title="read_u16">read_u16</a></li><li><a href="#method.read_u32" title="read_u32">read_u32</a></li><li><a href="#method.run" title="run">run</a></li><li><a href="#method.run_disassemble" title="run_disassemble">run_disassemble</a></li><li><a href="#method.set_exit_code" title="set_exit_code">set_exit_code</a></li><li><a href="#method.set_pc" title="set_pc">set_pc</a></li><li><a href="#method.set_running" title="set_running">set_running</a></li><li><a href="#method.set_x" title="set_x">set_x</a></li><li><a href="#method.step" title="step">step</a></li><li><a href="#method.write_u8" title="write_u8">write_u8</a></li><li><a href="#method.write_u16" title="write_u16">write_u16</a></li><li><a href="#method.write_u32" title="write_u32">write_u32</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-Freeze-for-CPU" title="Freeze">Freeze</a></li><li><a href="#impl-RefUnwindSafe-for-CPU" title="RefUnwindSafe">RefUnwindSafe</a></li><li><a href="#impl-Send-for-CPU" title="Send">Send</a></li><li><a href="#impl-Sync-for-CPU" title="Sync">Sync</a></li><li><a href="#impl-Unpin-for-CPU" title="Unpin">Unpin</a></li><li><a href="#impl-UnwindSafe-for-CPU" title="UnwindSafe">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T" title="Any">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T" title="Borrow&#60;T&#62;">Borrow&#60;T&#62;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T" title="BorrowMut&#60;T&#62;">BorrowMut&#60;T&#62;</a></li><li><a href="#impl-From%3CT%3E-for-T" title="From&#60;T&#62;">From&#60;T&#62;</a></li><li><a href="#impl-Into%3CU%3E-for-T" title="Into&#60;U&#62;">Into&#60;U&#62;</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T" title="TryFrom&#60;U&#62;">TryFrom&#60;U&#62;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T" title="TryInto&#60;U&#62;">TryInto&#60;U&#62;</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In riscv::<wbr>cpu</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">riscv</a>::<wbr><a href="index.html">cpu</a></div><h1>Struct <span class="struct">CPU</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/riscv/cpu/mod.rs.html#41-49">Source</a> </span></div><pre class="rust item-decl"><code>pub struct CPU { <span class="comment">/* private fields */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A single-core RV32I CPU.</p>
-<p>The CPU owns a <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>VM</code></a> that provides RAM and the register file. All
-architectural state (PC, registers, memory) lives inside the VM; the CPU
-layer adds the fetch/decode/execute pipeline and ISA-level error handling.</p>
-</div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-CPU" class="impl"><a class="src rightside" href="../../src/riscv/cpu/decode.rs.html#9-290">Source</a><a href="#impl-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.decode" class="method"><a class="src rightside" href="../../src/riscv/cpu/decode.rs.html#58-289">Source</a><h4 class="code-header">pub fn <a href="#method.decode" class="fn">decode</a>(&amp;mut self, instruction: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Decodes a raw 32-bit RISC-V instruction into a structured <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a> enum.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A single-core RV32I CPU."><title>CPU in riscv::cpu - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc struct"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">CPU</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">CPU</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#responsibilities" title="Responsibilities">Responsibilities</a></li><li><a href="#execution-model" title="Execution model">Execution model</a><ul><li><a href="#execution-modes" title="Execution modes">Execution modes</a></li></ul></li><li><a href="#state" title="State">State</a></li><li><a href="#invariants" title="Invariants">Invariants</a></li></ul><h3><a href="#implementations">Methods</a></h3><ul class="block method"><li><a href="#method.advance_pc" title="advance_pc">advance_pc</a></li><li><a href="#method.decode" title="decode">decode</a></li><li><a href="#method.disassemble" title="disassemble">disassemble</a></li><li><a href="#method.execute" title="execute">execute</a></li><li><a href="#method.fetch" title="fetch">fetch</a></li><li><a href="#method.get_exit_code" title="get_exit_code">get_exit_code</a></li><li><a href="#method.get_pc" title="get_pc">get_pc</a></li><li><a href="#method.get_x" title="get_x">get_x</a></li><li><a href="#method.is_running" title="is_running">is_running</a></li><li><a href="#method.new" title="new">new</a></li><li><a href="#method.read_u8" title="read_u8">read_u8</a></li><li><a href="#method.read_u16" title="read_u16">read_u16</a></li><li><a href="#method.read_u32" title="read_u32">read_u32</a></li><li><a href="#method.run" title="run">run</a></li><li><a href="#method.run_disassemble" title="run_disassemble">run_disassemble</a></li><li><a href="#method.set_exit_code" title="set_exit_code">set_exit_code</a></li><li><a href="#method.set_pc" title="set_pc">set_pc</a></li><li><a href="#method.set_running" title="set_running">set_running</a></li><li><a href="#method.set_x" title="set_x">set_x</a></li><li><a href="#method.step" title="step">step</a></li><li><a href="#method.write_u8" title="write_u8">write_u8</a></li><li><a href="#method.write_u16" title="write_u16">write_u16</a></li><li><a href="#method.write_u32" title="write_u32">write_u32</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block synthetic-implementation"><li><a href="#impl-Freeze-for-CPU" title="Freeze">Freeze</a></li><li><a href="#impl-RefUnwindSafe-for-CPU" title="RefUnwindSafe">RefUnwindSafe</a></li><li><a href="#impl-Send-for-CPU" title="Send">Send</a></li><li><a href="#impl-Sync-for-CPU" title="Sync">Sync</a></li><li><a href="#impl-Unpin-for-CPU" title="Unpin">Unpin</a></li><li><a href="#impl-UnsafeUnpin-for-CPU" title="UnsafeUnpin">UnsafeUnpin</a></li><li><a href="#impl-UnwindSafe-for-CPU" title="UnwindSafe">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block blanket-implementation"><li><a href="#impl-Any-for-T" title="Any">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-T" title="Borrow&#60;T&#62;">Borrow&#60;T&#62;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-T" title="BorrowMut&#60;T&#62;">BorrowMut&#60;T&#62;</a></li><li><a href="#impl-From%3CT%3E-for-T" title="From&#60;T&#62;">From&#60;T&#62;</a></li><li><a href="#impl-Into%3CU%3E-for-T" title="Into&#60;U&#62;">Into&#60;U&#62;</a></li><li><a href="#impl-TryFrom%3CU%3E-for-T" title="TryFrom&#60;U&#62;">TryFrom&#60;U&#62;</a></li><li><a href="#impl-TryInto%3CU%3E-for-T" title="TryInto&#60;U&#62;">TryInto&#60;U&#62;</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In riscv::<wbr>cpu</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">riscv</a>::<wbr><a href="index.html">cpu</a></div><h1>Struct <span class="struct">CPU</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/riscv/cpu/mod.rs.html#248-260">Source</a> </span></div><pre class="rust item-decl"><code>pub struct CPU { <span class="comment">/* private fields */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A single-core RV32I CPU.</p>
+<p>The CPU implements the instruction execution layer of the emulator,
+providing fetch–decode–execute semantics on top of a <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>All architectural state — including memory, registers, and the program
+counter (PC) — is stored in the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>. The CPU
+itself is responsible for applying instruction semantics and managing
+execution flow.</p>
+<h2 id="responsibilities"><a class="doc-anchor" href="#responsibilities">§</a>Responsibilities</h2>
+<ul>
+<li>Execute RV32I instructions</li>
+<li>Control program flow (PC updates, branching, halting)</li>
+<li>Enforce ISA-level constraints (alignment, valid opcodes)</li>
+<li>Translate <a href="../vm/enum.VMError.html" title="enum riscv::vm::VMError"><code>crate::vm::VMError</code></a> into <a href="enum.CPUError.html" title="enum riscv::cpu::CPUError"><code>CPUError</code></a></li>
+<li>Provide a disassembly mode for inspecting binaries</li>
+</ul>
+<h2 id="execution-model"><a class="doc-anchor" href="#execution-model">§</a>Execution model</h2>
+<p>The CPU operates on a simple 3-stage pipeline:</p>
+<ol>
+<li><a href="struct.CPU.html#method.fetch" title="method riscv::cpu::CPU::fetch"><code>CPU::fetch</code></a> — reads the next instruction from memory</li>
+<li><a href="struct.CPU.html#method.decode" title="method riscv::cpu::CPU::decode"><code>CPU::decode</code></a> — converts it into an <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction"><code>instruction::Instruction</code></a></li>
+<li><a href="struct.CPU.html#method.execute" title="method riscv::cpu::CPU::execute"><code>CPU::execute</code></a> — applies its effects to the machine state</li>
+</ol>
+<p>Higher-level methods such as <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a> and <a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a> orchestrate
+repeated execution of this pipeline.</p>
+<h3 id="execution-modes"><a class="doc-anchor" href="#execution-modes">§</a>Execution modes</h3>
+<p>The CPU supports two execution modes:</p>
+<ul>
+<li><strong>Normal execution</strong> — via <a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a> and <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a>, performing
+full fetch–decode–execute cycles.</li>
+<li><strong>Disassembly mode</strong> — via <a href="struct.CPU.html#method.run_disassemble" title="method riscv::cpu::CPU::run_disassemble"><code>CPU::run_disassemble</code></a>, where instructions
+are fetched and decoded but not executed, and are instead formatted
+and printed.</li>
+</ul>
+<p>This allows the same decoding pipeline to be reused for both execution
+and inspection of binaries.</p>
+<h2 id="state"><a class="doc-anchor" href="#state">§</a>State</h2>
+<p>Although the CPU does not store architectural state directly, it maintains:</p>
+<ul>
+<li><code>running</code> — whether execution should continue</li>
+<li><code>exit_code</code> — value returned when the program terminates</li>
+</ul>
+<h2 id="invariants"><a class="doc-anchor" href="#invariants">§</a>Invariants</h2>
+<ul>
+<li>The program counter is always 4-byte aligned</li>
+<li>Execution stops when <code>running == false</code></li>
+<li>All memory and register accesses are validated by the <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a></li>
+</ul>
+</div></details><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-CPU" class="impl"><a class="src rightside" href="../../src/riscv/cpu/decode.rs.html#60-346">Source</a><a href="#impl-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.decode" class="method"><a class="src rightside" href="../../src/riscv/cpu/decode.rs.html#120-345">Source</a><h4 class="code-header">pub fn <a href="#method.decode" class="fn">decode</a>(&amp;mut self, instruction: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Decodes a raw 32-bit RISC-V instruction into a structured <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction"><code>Instruction</code></a> enum.</p>
 <p>This function implements the RV32I base integer instruction decoding logic.
 It extracts opcode, funct3, funct7, register indices, and immediates,
-then maps them into the corresponding <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a> variant.</p>
-<p>The decoder is pure: it does not modify CPU state, memory, or registers.
+then maps them into the corresponding <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction"><code>Instruction</code></a> variant.</p>
+<p>The decoder is <strong>pure</strong>: it does not modify CPU state, memory, or registers.
 It only interprets the provided instruction word.</p>
 <h5 id="arguments"><a class="doc-anchor" href="#arguments">§</a>Arguments</h5>
 <ul>
-<li>instruction - A 32-bit raw instruction fetched from memory.</li>
+<li><code>instruction</code> - A 32-bit raw instruction fetched from memory.</li>
 </ul>
 <h5 id="returns"><a class="doc-anchor" href="#returns">§</a>Returns</h5>
 <ul>
-<li>Ok(Instruction) if the instruction is recognized and successfully decoded.</li>
-<li>Err(CPUError::IllegalInstruction) if the opcode or encoding is not supported.</li>
+<li><code>Ok(Instruction)</code> if the instruction is recognized and successfully decoded.</li>
+<li><code>Err(CPUError::IllegalInstruction)</code> if the opcode or encoding is not supported.</li>
 </ul>
 <h5 id="supported-instruction-classes"><a class="doc-anchor" href="#supported-instruction-classes">§</a>Supported Instruction Classes</h5>
 <ul>
 <li>R-type (ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU)</li>
 <li>I-type (ADDI, SLLI, SRLI, SRAI)</li>
 <li>Loads (LB, LH, LW, LBU, LHU)</li>
-<li>Stores (SW)</li>
-<li>Branches (BEQ, BNE)</li>
+<li>Stores (SB, SH, SW)</li>
+<li>Branches (BEQ, BNE, BLT, BGE, BLTU, BGEU)</li>
 <li>Upper immediates (LUI, AUIPC)</li>
 <li>Jumps (JAL, JALR)</li>
 <li>System (ECALL, EBREAK)</li>
-<li>Fence (FENCE)</li>
+<li>Fence (FENCE, FENCE.I)</li>
 </ul>
 <h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.IllegalInstruction" title="variant riscv::cpu::CPUError::IllegalInstruction">CPUError::IllegalInstruction</a> when:</p>
+<p>Returns <a href="enum.CPUError.html#variant.IllegalInstruction" title="variant riscv::cpu::CPUError::IllegalInstruction"><code>CPUError::IllegalInstruction</code></a> when:</p>
 <ul>
 <li>The opcode is not part of RV32I</li>
 <li>funct3 or funct7 combination is invalid</li>
-<li>The instruction belongs to an unsupported extension (e.g., RV32M)</li>
+<li>The instruction belongs to an unsupported extension (e.g. RV32M)</li>
 </ul>
 <h5 id="example"><a class="doc-anchor" href="#example">§</a>Example</h5>
-<p>/// # use riscv::<em>; /// # let mut cpu = /</em> create CPU */ unimplemented!(); /// let raw = 0x00500093; // addi x1, x0, 5 /// let instr = cpu.decode(raw).unwrap(); /// /// assert_eq!( /// instr, /// Instruction::Addi { /// rd: 1, /// rs1: 0, /// imm: 5 /// } /// ); ///</p>
-<h5 id="notes"><a class="doc-anchor" href="#notes">§</a>Notes</h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>riscv::cpu::instruction::Instruction;
+
+
+<span class="kw">let </span>raw = <span class="number">0x00500093</span>;
+<span class="kw">let </span>instr = cpu.decode(raw).unwrap();
+
+<span class="macro">assert!</span>(<span class="macro">matches!</span>(instr, Instruction::Addi { rd: <span class="number">1</span>, rs1: <span class="number">0</span>, imm: <span class="number">5 </span>}));</code></pre></div><h5 id="notes"><a class="doc-anchor" href="#notes">§</a>Notes</h5>
 <ul>
 <li>Immediates are sign-extended according to the RISC-V specification.</li>
 <li>Register indices are not validated here; execution stage handles that.</li>
 <li>This decoder assumes 32-bit aligned instructions (no compressed ISA).</li>
 </ul>
-</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-CPU-1" class="impl"><a class="src rightside" href="../../src/riscv/cpu/execute.rs.html#5-238">Source</a><a href="#impl-CPU-1" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.execute" class="method"><a class="src rightside" href="../../src/riscv/cpu/execute.rs.html#10-237">Source</a><h4 class="code-header">pub fn <a href="#method.execute" class="fn">execute</a>(&amp;mut self, instr: <a class="enum" href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Executes a single RV32I instruction on the CPU’s VM.</p>
-<p>Updates registers, memory, and PC as needed. Errors from VM or illegal instructions
-are propagated as <a href="enum.CPUError.html" title="enum riscv::cpu::CPUError"><code>CPUError</code></a>.</p>
-</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-CPU-2" class="impl"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#54-309">Source</a><a href="#impl-CPU-2" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#71-90">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(elf_file: <a class="struct" href="../risc_v/struct.ElfImage.html" title="struct riscv::risc_v::ElfImage">ElfImage</a>, ram_length_kb: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Creates a new CPU from an ELF image and initialises architectural state.</p>
-<p>Delegates RAM allocation and segment loading to <a href="../vm/struct.VM.html#method.new" title="associated function riscv::vm::VM::new"><code>VM::new</code></a>. After the
-VM is ready, performs the two hardware-level initialisations that a real
-RISC-V SoC reset sequence would provide:</p>
-<ol>
-<li><strong>Program counter</strong> — set to the ELF entry point (handled by the VM).</li>
-<li><strong>Stack pointer (x2)</strong> — set to the top of RAM, 16-byte aligned, as
-required by the RISC-V psABI calling convention. Without this, the
-very first function prologue (<code>addi sp, sp, -N</code>) would wrap around to
-<code>0xFFFF_FFF0</code> and cause an immediate <code>MemoryOutOfBounds</code> fault.</li>
-</ol>
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-CPU-1" class="impl"><a class="src rightside" href="../../src/riscv/cpu/execute.rs.html#80-385">Source</a><a href="#impl-CPU-1" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.execute" class="method"><a class="src rightside" href="../../src/riscv/cpu/execute.rs.html#157-384">Source</a><h4 class="code-header">pub fn <a href="#method.execute" class="fn">execute</a>(&amp;mut self, instr: <a class="enum" href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Executes a single RV32I instruction on the CPU.</p>
+<p>This function implements the execution stage of the RISC-V pipeline.
+It takes a decoded <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction"><code>Instruction</code></a> and applies its semantics to the CPU state,
+including register file updates, memory access, and control flow changes.</p>
+<p>The function is <strong>stateful</strong>: it may modify:</p>
+<ul>
+<li>General-purpose registers (<code>x0</code>–<code>x31</code>)</li>
+<li>Memory</li>
+<li>Program counter (PC)</li>
+<li>CPU execution state (running / exit code)</li>
+</ul>
+<h5 id="semantics"><a class="doc-anchor" href="#semantics">§</a>Semantics</h5>
+<ul>
+<li>Arithmetic and logical instructions operate with wrapping semantics.</li>
+<li>Branches modify the PC only when the condition is satisfied.</li>
+<li>Jumps always update the PC and may write the return address.</li>
+<li>Loads and stores perform memory access with sign/zero extension as specified by RV32I.</li>
+<li><code>x0</code> is always hardwired to zero (writes are ignored).</li>
+</ul>
 <h5 id="errors-1"><a class="doc-anchor" href="#errors-1">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if the ELF image does not fit in <code>ram_length_kb</code>
-kilobytes or if the image is otherwise invalid.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.get_exit_code" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#93-95">Source</a><h4 class="code-header">pub fn <a href="#method.get_exit_code" class="fn">get_exit_code</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>getter for exit_code (I’ll document it better later…)</p>
-</div></details><section id="method.set_exit_code" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#97-99">Source</a><h4 class="code-header">pub fn <a href="#method.set_exit_code" class="fn">set_exit_code</a>(&amp;mut self, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.i32.html">i32</a>)</h4></section><section id="method.is_running" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#101-103">Source</a><h4 class="code-header">pub fn <a href="#method.is_running" class="fn">is_running</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.bool.html">bool</a></h4></section><section id="method.set_running" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#105-107">Source</a><h4 class="code-header">pub fn <a href="#method.set_running" class="fn">set_running</a>(&amp;mut self, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.bool.html">bool</a>)</h4></section><details class="toggle method-toggle" open><summary><section id="method.fetch" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#124-133">Source</a><h4 class="code-header">pub fn <a href="#method.fetch" class="fn">fetch</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Fetches the instruction at the current PC (fetch stage).</p>
-<p>Enforces the RV32I alignment requirement before reading memory:
-if the PC is not 4-byte aligned an error is returned immediately and
-no memory access is attempted.</p>
-<p>Returns the raw 32-bit instruction word; decoding happens in the next
-pipeline stage.</p>
-<h5 id="errors-2"><a class="doc-anchor" href="#errors-2">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> if the current PC
-is not 4-byte aligned.</p>
-<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if the PC is outside RAM bounds.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.get_pc" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#136-139">Source</a><h4 class="code-header">pub fn <a href="#method.get_pc" class="fn">get_pc</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Returns the address of the next instruction to be fetched.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.set_pc" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#157-164">Source</a><h4 class="code-header">pub fn <a href="#method.set_pc" class="fn">set_pc</a>(&amp;mut self, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Sets the program counter (PC) to <code>value</code>.</p>
-<p>Enforces the RV32I requirement that instruction addresses must be
-4-byte aligned. If <code>value</code> is not aligned the error is returned
-immediately and the PC is not modified.</p>
-<p>On success, the new PC value is forwarded to the underlying VM, which
-performs a bounds check against RAM.</p>
-<h5 id="errors-3"><a class="doc-anchor" href="#errors-3">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> if <code>value</code> is not
-4-byte aligned.</p>
-<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if the underlying VM rejects the update
-(e.g. the address is outside RAM).</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.advance_pc" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#176-178">Source</a><h4 class="code-header">pub fn <a href="#method.advance_pc" class="fn">advance_pc</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Advances the program counter by 4 bytes (one RV32I instruction).</p>
-<p>Equivalent to <code>set_pc(get_pc() + 4)</code>. The VM’s bounds check on
-<a href="../vm/struct.VM.html#method.set_pc" title="method riscv::vm::VM::set_pc"><code>VM::set_pc</code></a> ensures the new address remains within RAM, so no
-separate overflow guard is needed here.</p>
-<h5 id="errors-4"><a class="doc-anchor" href="#errors-4">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if the resulting address would fall outside
-RAM bounds.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.get_x" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#187-189">Source</a><h4 class="code-header">pub fn <a href="#method.get_x" class="fn">get_x</a>(&amp;self, index: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the value of register <code>index</code> (x0–x31).</p>
-<p>Forwards the request to the underlying VM.</p>
-<h5 id="errors-5"><a class="doc-anchor" href="#errors-5">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if <code>index</code> is out of the valid range (≥ 32).</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.set_x" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#199-202">Source</a><h4 class="code-header">pub fn <a href="#method.set_x" class="fn">set_x</a>(&amp;mut self, index: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.usize.html">usize</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Sets register <code>index</code> to <code>value</code>.</p>
-<p>Writes to <code>x0</code> are silently ignored, as required by the RISC-V ISA.
-This invariant is enforced by the underlying VM.</p>
-<h5 id="errors-6"><a class="doc-anchor" href="#errors-6">§</a>Errors</h5>
-<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if <code>index</code> is out of the valid range (≥ 32).</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u8" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#205-207">Source</a><h4 class="code-header">pub fn <a href="#method.read_u8" class="fn">read_u8</a>(&amp;self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u8.html">u8</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Reads a byte from memory at the given virtual address.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u8" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#210-213">Source</a><h4 class="code-header">pub fn <a href="#method.write_u8" class="fn">write_u8</a>(&amp;mut self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u8.html">u8</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Writes a byte to memory at the given virtual address.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u16" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#216-218">Source</a><h4 class="code-header">pub fn <a href="#method.read_u16" class="fn">read_u16</a>(&amp;self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u16.html">u16</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Reads a halfword from memory at the given address.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u16" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#221-224">Source</a><h4 class="code-header">pub fn <a href="#method.write_u16" class="fn">write_u16</a>(&amp;mut self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u16.html">u16</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Writes a halfword to memory at the given address.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u32" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#227-229">Source</a><h4 class="code-header">pub fn <a href="#method.read_u32" class="fn">read_u32</a>(&amp;self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Reads a word from memory at the given address.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u32" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#232-235">Source</a><h4 class="code-header">pub fn <a href="#method.write_u32" class="fn">write_u32</a>(&amp;mut self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Writes a word to memory at the given address.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.disassemble" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#239-244">Source</a><h4 class="code-header">pub fn <a href="#method.disassemble" class="fn">disassemble</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Fetches, decodes and prints one instruction, then advances PC.
-This is a linear disassembly mode (no execute stage).</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.step" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#261-273">Source</a><h4 class="code-header">pub fn <a href="#method.step" class="fn">step</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Executes one fetch–decode–execute cycle.</p>
-<h5 id="pc-advancement-rules"><a class="doc-anchor" href="#pc-advancement-rules">§</a>PC advancement rules</h5>
-<p>After <code>execute()</code> returns, the PC is advanced <strong>only when all three
-conditions hold</strong>:</p>
+<p>Returns <a href="enum.CPUError.html" title="enum riscv::cpu::CPUError"><code>CPUError</code></a> when:</p>
+<ul>
+<li>A memory access fails (invalid address, alignment, etc.)</li>
+<li>An unsupported or invalid syscall is executed (<code>ecall</code>)</li>
+</ul>
+<h5 id="instruction-effects-summary"><a class="doc-anchor" href="#instruction-effects-summary">§</a>Instruction Effects Summary</h5><h6 id="alu-r-type--i-type"><a class="doc-anchor" href="#alu-r-type--i-type">§</a>ALU (R-type / I-type)</h6>
+<ul>
+<li>Perform arithmetic, logical, and shift operations</li>
+<li>Use wrapping arithmetic (<code>wrapping_add</code>, <code>wrapping_sub</code>)</li>
+</ul>
+<h6 id="memory-loads--stores"><a class="doc-anchor" href="#memory-loads--stores">§</a>Memory (Loads / Stores)</h6>
+<ul>
+<li><code>lb</code>, <code>lh</code> sign-extend results</li>
+<li><code>lbu</code>, <code>lhu</code> zero-extend results</li>
+<li>Stores write low bytes/halfwords/words to memory</li>
+</ul>
+<h6 id="control-flow"><a class="doc-anchor" href="#control-flow">§</a>Control Flow</h6>
+<ul>
+<li>Branches modify PC only if condition is true</li>
+<li><code>jal</code> writes return address (PC + 4)</li>
+<li><code>jalr</code> clears bit 0 of target address</li>
+</ul>
+<h6 id="system-instructions"><a class="doc-anchor" href="#system-instructions">§</a>System Instructions</h6>
+<ul>
+<li><code>ecall</code> may halt execution or trigger syscalls</li>
+<li><code>ebreak</code> is currently a no-op</li>
+<li><code>fence</code> / <code>fence.i</code> are no-ops in this implementation</li>
+</ul>
+<h5 id="notes-1"><a class="doc-anchor" href="#notes-1">§</a>Notes</h5>
+<ul>
+<li>This function does <strong>not fetch or decode instructions</strong>.</li>
+<li>It assumes the instruction is already validated.</li>
+<li>PC management depends on the caller for non-control-flow instructions.</li>
+</ul>
+<h5 id="example-1"><a class="doc-anchor" href="#example-1">§</a>Example</h5>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>cpu = CPU::new(elf, <span class="number">4096</span>).unwrap();
+
+cpu.execute(Instruction::Addi {
+    rd: <span class="number">1</span>,
+    rs1: <span class="number">0</span>,
+    imm: <span class="number">10</span>,
+})<span class="question-mark">?</span>;
+
+<span class="macro">assert_eq!</span>(cpu.get_x(<span class="number">1</span>)<span class="question-mark">?</span>, <span class="number">10</span>);</code></pre></div><h5 id="risc-v-compliance"><a class="doc-anchor" href="#risc-v-compliance">§</a>RISC-V Compliance</h5>
+<p>Implements RV32I base integer ISA (no M/A/F/D extensions).
+Compliant behavior includes:</p>
+<ul>
+<li>Proper sign extension for loads</li>
+<li>Proper shift masking (<code>shamt &amp; 0x1f</code>)</li>
+<li>Proper JALR alignment (<code>&amp; !1</code>)</li>
+</ul>
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-CPU-2" class="impl"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#265-851">Source</a><a href="#impl-CPU-2" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#301-312">Source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(elf_file: <a class="struct" href="../risc_v/struct.ElfImage.html" title="struct riscv::risc_v::ElfImage">ElfImage</a>, ram_length_kb: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Creates a new CPU from an ELF image and initialises architectural state.</p>
+<p>This constructor builds the CPU on top of a <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>VM</code></a> instance, which is
+responsible for loading the ELF image into memory and setting the initial
+program counter (PC).</p>
+<p>After the VM is initialised, this method performs additional
+CPU-level initialisation steps that mirror a real RISC-V reset sequence:</p>
 <ol>
-<li>The CPU is still running (<code>self.running == true</code>). An <code>ecall</code> that
-triggers <code>exit</code> sets <code>running = false</code> before this check, so we
-never attempt to advance past the last instruction.</li>
-<li>The PC was <strong>not</strong> modified by the instruction itself. Branch and
-jump instructions update the PC inside <code>execute()</code>; for all other
-instructions the PC stays at <code>pc_before</code> and we step it forward here.</li>
-<li>The resulting address is within RAM. If it isn’t, the step fails with
-<a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — which is a genuine error, not a normal halt.</li>
+<li><strong>Program counter (PC)</strong> — initialised to the ELF entry point
+(handled by <a href="../vm/struct.VM.html#method.new" title="associated function riscv::vm::VM::new"><code>VM::new</code></a>).</li>
+<li><strong>Stack pointer (x2 / <code>sp</code>)</strong> — initialised to the top of RAM,
+aligned to 16 bytes, as required by the RISC-V psABI.</li>
 </ol>
-</div></details><section id="method.run" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#275-283">Source</a><h4 class="code-header">pub fn <a href="#method.run" class="fn">run</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section><section id="method.run_disassemble" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#285-308">Source</a><h4 class="code-header">pub fn <a href="#method.run_disassemble" class="fn">run_disassemble</a>(&amp;mut self, elf: <a class="struct" href="../risc_v/struct.ElfImage.html" title="struct riscv::risc_v::ElfImage">ElfImage</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></div></details></div><h2 id="synthetic-implementations" class="section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-Freeze-for-CPU" class="impl"><a href="#impl-Freeze-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Freeze.html" title="trait core::marker::Freeze">Freeze</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-RefUnwindSafe-for-CPU" class="impl"><a href="#impl-RefUnwindSafe-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-Send-for-CPU" class="impl"><a href="#impl-Send-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-Sync-for-CPU" class="impl"><a href="#impl-Sync-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-Unpin-for-CPU" class="impl"><a href="#impl-Unpin-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-UnwindSafe-for-CPU" class="impl"><a href="#impl-UnwindSafe-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/panic/unwind_safe/trait.UnwindSafe.html" title="trait core::panic::unwind_safe::UnwindSafe">UnwindSafe</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></div><h2 id="blanket-implementations" class="section-header">Blanket Implementations<a href="#blanket-implementations" class="anchor">§</a></h2><div id="blanket-implementations-list"><details class="toggle implementors-toggle"><summary><section id="impl-Any-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/any.rs.html#138">Source</a><a href="#impl-Any-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/any/trait.Any.html" title="trait core::any::Any">Any</a> for T<div class="where">where
-    T: 'static + ?<a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.type_id" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/any.rs.html#139">Source</a><a href="#method.type_id" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/any/trait.Any.html#tymethod.type_id" class="fn">type_id</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.94.1/core/any/struct.TypeId.html" title="struct core::any::TypeId">TypeId</a></h4></section></summary><div class='docblock'>Gets the <code>TypeId</code> of <code>self</code>. <a href="https://doc.rust-lang.org/1.94.1/core/any/trait.Any.html#tymethod.type_id">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Borrow%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/borrow.rs.html#212">Source</a><a href="#impl-Borrow%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T&gt; for T<div class="where">where
-    T: ?<a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.borrow" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/borrow.rs.html#214">Source</a><a href="#method.borrow" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/borrow/trait.Borrow.html#tymethod.borrow" class="fn">borrow</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.reference.html">&amp;T</a></h4></section></summary><div class='docblock'>Immutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.94.1/core/borrow/trait.Borrow.html#tymethod.borrow">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BorrowMut%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/borrow.rs.html#221">Source</a><a href="#impl-BorrowMut%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/borrow/trait.BorrowMut.html" title="trait core::borrow::BorrowMut">BorrowMut</a>&lt;T&gt; for T<div class="where">where
-    T: ?<a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.borrow_mut" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/borrow.rs.html#222">Source</a><a href="#method.borrow_mut" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut" class="fn">borrow_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.94.1/std/primitive.reference.html">&amp;mut T</a></h4></section></summary><div class='docblock'>Mutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.94.1/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-From%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#785">Source</a><a href="#impl-From%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for T</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#788">Source</a><a href="#method.from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.From.html#tymethod.from" class="fn">from</a>(t: T) -&gt; T</h4></section></summary><div class="docblock"><p>Returns the argument unchanged.</p>
-</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Into%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#767-769">Source</a><a href="#impl-Into%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;U&gt; for T<div class="where">where
-    U: <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#777">Source</a><a href="#method.into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.Into.html#tymethod.into" class="fn">into</a>(self) -&gt; U</h4></section></summary><div class="docblock"><p>Calls <code>U::from(self)</code>.</p>
+<p>The stack pointer is aligned <em>downwards</em> from the total RAM size to ensure
+that the first stack allocation (e.g. <code>addi sp, sp, -N</code>) remains within
+valid memory bounds.</p>
+<p>Without this initialisation, typical compiled programs would immediately
+fault due to stack underflow (e.g. wrapping to <code>0xFFFF_FFF0</code>).</p>
+<h5 id="errors-2"><a class="doc-anchor" href="#errors-2">§</a>Errors</h5>
+<p>Returns <a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> if:</p>
+<ul>
+<li>the ELF image is invalid</li>
+<li>the image does not fit within the specified RAM size</li>
+<li>the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>VM</code></a> fails to initialise</li>
+</ul>
+<h5 id="guarantees"><a class="doc-anchor" href="#guarantees">§</a>Guarantees</h5>
+<ul>
+<li>The CPU starts in a <strong>stopped state</strong> (<code>running = false</code>)</li>
+<li>The PC points to a valid instruction within RAM</li>
+<li>The stack pointer (<code>x2</code>) is valid and ABI-compliant</li>
+<li>All architectural state is initialised and consistent</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_exit_code" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#324-326">Source</a><h4 class="code-header">pub fn <a href="#method.get_exit_code" class="fn">get_exit_code</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Returns the program exit code.</p>
+<p>This value is typically set by the program via an <code>ecall</code> that mimics
+a system <code>exit</code>. It becomes meaningful after execution has stopped
+(i.e. when <a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a> or <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a> completes).</p>
+<h5 id="notes-2"><a class="doc-anchor" href="#notes-2">§</a>Notes</h5>
+<ul>
+<li>The default value is <code>0</code></li>
+<li>The meaning of the exit code is program-defined</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_exit_code" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#338-340">Source</a><h4 class="code-header">pub fn <a href="#method.set_exit_code" class="fn">set_exit_code</a>(&amp;mut self, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.i32.html">i32</a>)</h4></section></summary><div class="docblock"><p>Sets the program exit code.</p>
+<p>This is primarily intended to be used by syscall handlers
+(e.g. when implementing <code>ecall</code> semantics).</p>
+<h5 id="notes-3"><a class="doc-anchor" href="#notes-3">§</a>Notes</h5>
+<ul>
+<li>Setting the exit code does <strong>not</strong> stop execution</li>
+<li>Callers are expected to also update <a href="struct.CPU.html#method.set_running" title="method riscv::cpu::CPU::set_running"><code>CPU::set_running</code></a>
+if termination is desired</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_running" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#346-348">Source</a><h4 class="code-header">pub fn <a href="#method.is_running" class="fn">is_running</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the CPU is currently executing instructions.</p>
+<p>When this returns <code>false</code>, the CPU is considered halted and
+no further instructions will be executed unless restarted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_running" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#363-365">Source</a><h4 class="code-header">pub fn <a href="#method.set_running" class="fn">set_running</a>(&amp;mut self, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.bool.html">bool</a>)</h4></section></summary><div class="docblock"><p>Sets the CPU execution state.</p>
+<p>When set to <code>false</code>, execution will stop on the next cycle
+(e.g. in <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a> or <a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a>).</p>
+<h5 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h5>
+<p>This is typically controlled internally by the CPU, for example:</p>
+<ul>
+<li>When handling an <code>ecall</code> that terminates the program</li>
+<li>When a fatal error occurs</li>
+</ul>
+<p>External callers may also use this to manually stop execution.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.fetch" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#391-400">Source</a><h4 class="code-header">pub fn <a href="#method.fetch" class="fn">fetch</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Fetches the instruction at the current program counter (PC).</p>
+<p>This corresponds to the <em>fetch</em> stage of the classic
+fetch–decode–execute pipeline.</p>
+<p>The method enforces the RV32I alignment requirement before accessing
+memory: instruction addresses must be 4-byte aligned. If the PC is not
+properly aligned, an error is returned immediately and no memory access
+is performed.</p>
+<p>On success, returns the raw 32-bit instruction word. Decoding is handled
+by <a href="struct.CPU.html#method.decode" title="method riscv::cpu::CPU::decode"><code>CPU::decode</code></a> in the next pipeline stage.</p>
+<h5 id="errors-3"><a class="doc-anchor" href="#errors-3">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> — if the current PC is not
+4-byte aligned</li>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM fails to read memory
+(e.g. the PC is outside RAM bounds)</li>
+</ul>
+<h5 id="guarantees-1"><a class="doc-anchor" href="#guarantees-1">§</a>Guarantees</h5>
+<ul>
+<li>No memory access occurs if the PC is misaligned</li>
+<li>The VM state is not modified by this operation</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_pc" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#414-417">Source</a><h4 class="code-header">pub fn <a href="#method.get_pc" class="fn">get_pc</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Returns the current program counter (PC).</p>
+<p>The PC represents the address of the next instruction to be fetched
+during the <a href="struct.CPU.html#method.fetch" title="method riscv::cpu::CPU::fetch"><code>CPU::fetch</code></a> stage.</p>
+<p>This value is stored in the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a> and reflects
+the current execution position of the CPU.</p>
+<h5 id="notes-4"><a class="doc-anchor" href="#notes-4">§</a>Notes</h5>
+<ul>
+<li>The PC is always expected to be 4-byte aligned (enforced by <a href="struct.CPU.html#method.set_pc" title="method riscv::cpu::CPU::set_pc"><code>CPU::set_pc</code></a>)</li>
+<li>The returned value is not validated again here</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_pc" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#442-449">Source</a><h4 class="code-header">pub fn <a href="#method.set_pc" class="fn">set_pc</a>(&amp;mut self, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Sets the program counter (PC) to <code>value</code>.</p>
+<p>The PC determines the address of the next instruction to be fetched.
+This method enforces the RV32I requirement that all instruction
+addresses must be 4-byte aligned.</p>
+<p>If <code>value</code> is not properly aligned, the error is returned immediately
+and the PC is not modified.</p>
+<p>On success, the new PC value is forwarded to the underlying
+<a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>, which performs a bounds check against RAM.</p>
+<h5 id="errors-4"><a class="doc-anchor" href="#errors-4">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> — if <code>value</code> is not
+4-byte aligned</li>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the update
+(e.g. the address is outside RAM)</li>
+</ul>
+<h5 id="guarantees-2"><a class="doc-anchor" href="#guarantees-2">§</a>Guarantees</h5>
+<ul>
+<li>The PC is updated only if all checks succeed</li>
+<li>The PC remains unchanged on error</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.advance_pc" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#478-480">Source</a><h4 class="code-header">pub fn <a href="#method.advance_pc" class="fn">advance_pc</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Advances the program counter (PC) by 4 bytes (one RV32I instruction).</p>
+<p>This corresponds to moving to the next sequential instruction in the
+absence of control flow changes (e.g. branches or jumps).</p>
+<p>Internally, this is equivalent to:</p>
+<div class="example-wrap"><pre class="language-text"><code>set_pc(get_pc() + 4)</code></pre></div>
+<p>The addition uses wrapping semantics (<code>wrapping_add</code>) to avoid
+arithmetic overflow panics. The resulting address is then validated
+by <a href="struct.CPU.html#method.set_pc" title="method riscv::cpu::CPU::set_pc"><code>CPU::set_pc</code></a>, which enforces alignment and delegates bounds
+checking to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<h5 id="errors-5"><a class="doc-anchor" href="#errors-5">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> — if the resulting PC is
+not 4-byte aligned (should not occur under normal execution)</li>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the resulting address is outside RAM bounds</li>
+</ul>
+<h5 id="guarantees-3"><a class="doc-anchor" href="#guarantees-3">§</a>Guarantees</h5>
+<ul>
+<li>The PC is advanced only if all checks succeed</li>
+<li>The PC remains unchanged on error</li>
+<li>No intermediate invalid state is observable</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_x" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#496-498">Source</a><h4 class="code-header">pub fn <a href="#method.get_x" class="fn">get_x</a>(&amp;self, index: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the value of register <code>index</code> (x0–x31).</p>
+<p>This method provides CPU-level access to the architectural register
+file, delegating storage and validation to the underlying
+<a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<h5 id="errors-6"><a class="doc-anchor" href="#errors-6">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if <code>index</code> is out of the valid range (≥ 32)</li>
+</ul>
+<h5 id="notes-5"><a class="doc-anchor" href="#notes-5">§</a>Notes</h5>
+<ul>
+<li>Register semantics (such as <code>x0</code> always reading as zero) are enforced
+by the VM layer</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_x" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#517-520">Source</a><h4 class="code-header">pub fn <a href="#method.set_x" class="fn">set_x</a>(&amp;mut self, index: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.usize.html">usize</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Sets register <code>index</code> to <code>value</code>.</p>
+<p>This method provides CPU-level access to the architectural register
+file while preserving the invariants enforced by the underlying
+<a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>Writes to register <code>x0</code> are silently ignored, as required by the
+RISC-V ISA.</p>
+<h5 id="errors-7"><a class="doc-anchor" href="#errors-7">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if <code>index</code> is out of the valid range (≥ 32)</li>
+</ul>
+<h5 id="guarantees-4"><a class="doc-anchor" href="#guarantees-4">§</a>Guarantees</h5>
+<ul>
+<li>The register file is modified only if the operation succeeds</li>
+<li>Architectural invariants (e.g. <code>x0 == 0</code>) are preserved</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u8" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#540-542">Source</a><h4 class="code-header">pub fn <a href="#method.read_u8" class="fn">read_u8</a>(&amp;self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Reads a byte from the given virtual address.</p>
+<p>This method provides CPU-level access to memory and memory-mapped I/O
+(MMIO), delegating the operation to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>In addition to regular RAM accesses, certain address ranges correspond
+to hardware devices (e.g. UART). Reads from these regions may have
+side effects or return device-specific values.</p>
+<h5 id="errors-8"><a class="doc-anchor" href="#errors-8">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the access
+(e.g. address is outside RAM bounds)</li>
+</ul>
+<h5 id="notes-6"><a class="doc-anchor" href="#notes-6">§</a>Notes</h5>
+<ul>
+<li>This method does not distinguish between RAM and MMIO; that logic is
+implemented in the VM layer</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u8" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#562-565">Source</a><h4 class="code-header">pub fn <a href="#method.write_u8" class="fn">write_u8</a>(&amp;mut self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Writes a byte to the given virtual address.</p>
+<p>This method provides CPU-level access to memory and memory-mapped I/O
+(MMIO), delegating the operation to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>Writes to certain address ranges may interact with hardware devices
+instead of RAM. For example, writing to the UART transmit register
+results in output being produced.</p>
+<h5 id="errors-9"><a class="doc-anchor" href="#errors-9">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the access
+(e.g. address is outside RAM bounds)</li>
+</ul>
+<h5 id="guarantees-5"><a class="doc-anchor" href="#guarantees-5">§</a>Guarantees</h5>
+<ul>
+<li>The underlying VM ensures memory safety and device semantics</li>
+<li>No partial writes occur on error</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u16" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#584-586">Source</a><h4 class="code-header">pub fn <a href="#method.read_u16" class="fn">read_u16</a>(&amp;self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u16.html">u16</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Reads a 16-bit halfword from the given virtual address.</p>
+<p>This method provides CPU-level access to memory, delegating the
+operation to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>It is typically used by RV32I load instructions such as <code>LH</code> and <code>LHU</code>.</p>
+<h5 id="errors-10"><a class="doc-anchor" href="#errors-10">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the access
+(e.g. address is outside RAM bounds)</li>
+</ul>
+<h5 id="notes-7"><a class="doc-anchor" href="#notes-7">§</a>Notes</h5>
+<ul>
+<li>Endianness is little-endian, as defined by the RISC-V specification</li>
+<li>Alignment requirements are not enforced here; they are handled
+at the instruction level</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u16" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#603-606">Source</a><h4 class="code-header">pub fn <a href="#method.write_u16" class="fn">write_u16</a>(&amp;mut self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u16.html">u16</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Writes a 16-bit halfword to the given virtual address.</p>
+<p>This method provides CPU-level access to memory, delegating the
+operation to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>It is typically used by RV32I store instructions such as <code>SH</code>.</p>
+<h5 id="errors-11"><a class="doc-anchor" href="#errors-11">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the access
+(e.g. address is outside RAM bounds)</li>
+</ul>
+<h5 id="guarantees-6"><a class="doc-anchor" href="#guarantees-6">§</a>Guarantees</h5>
+<ul>
+<li>The memory is modified only if the operation succeeds</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u32" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#624-626">Source</a><h4 class="code-header">pub fn <a href="#method.read_u32" class="fn">read_u32</a>(&amp;self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Reads a 32-bit word from the given virtual address.</p>
+<p>This method provides CPU-level access to memory, delegating the
+operation to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>It is typically used by RV32I load instructions such as <code>LW</code>.</p>
+<h5 id="errors-12"><a class="doc-anchor" href="#errors-12">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the access
+(e.g. address is outside RAM bounds)</li>
+</ul>
+<h5 id="notes-8"><a class="doc-anchor" href="#notes-8">§</a>Notes</h5>
+<ul>
+<li>Endianness is little-endian, as defined by the RISC-V specification</li>
+<li>Instruction fetches also rely on word-sized reads via <a href="struct.CPU.html#method.fetch" title="method riscv::cpu::CPU::fetch"><code>CPU::fetch</code></a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u32" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#643-646">Source</a><h4 class="code-header">pub fn <a href="#method.write_u32" class="fn">write_u32</a>(&amp;mut self, addr: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>, value: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Writes a 32-bit word to the given virtual address.</p>
+<p>This method provides CPU-level access to memory, delegating the
+operation to the underlying <a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</p>
+<p>It is typically used by RV32I store instructions such as <code>SW</code>.</p>
+<h5 id="errors-13"><a class="doc-anchor" href="#errors-13">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if the underlying VM rejects the access
+(e.g. address is outside RAM bounds)</li>
+</ul>
+<h5 id="guarantees-7"><a class="doc-anchor" href="#guarantees-7">§</a>Guarantees</h5>
+<ul>
+<li>The memory is modified only if the operation succeeds</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.disassemble" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#679-684">Source</a><h4 class="code-header">pub fn <a href="#method.disassemble" class="fn">disassemble</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction">Instruction</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Performs a single fetch–decode step and returns the decoded instruction.</p>
+<p>This method implements a <em>linear disassembly</em> mode: it fetches the
+instruction at the current program counter (PC), decodes it into an
+<a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction"><code>Instruction</code></a>, and advances the PC by one instruction (4 bytes),
+without executing it.</p>
+<p>Unlike <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a>, this method does not perform the execute stage
+and has no side effects on registers or memory.</p>
+<h5 id="returns-1"><a class="doc-anchor" href="#returns-1">§</a>Returns</h5>
+<p>The decoded <a href="instruction/enum.Instruction.html" title="enum riscv::cpu::instruction::Instruction"><code>Instruction</code></a> corresponding to the current PC.</p>
+<h5 id="errors-14"><a class="doc-anchor" href="#errors-14">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> — if the PC is not
+4-byte aligned</li>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if memory access fails during fetch</li>
+<li><a href="enum.CPUError.html#variant.IllegalInstruction" title="variant riscv::cpu::CPUError::IllegalInstruction"><code>CPUError::IllegalInstruction</code></a> — if decoding fails</li>
+</ul>
+<h5 id="guarantees-8"><a class="doc-anchor" href="#guarantees-8">§</a>Guarantees</h5>
+<ul>
+<li>No architectural state (registers or memory) is modified</li>
+<li>The PC is advanced only if fetch and decode succeed</li>
+</ul>
+<h5 id="notes-9"><a class="doc-anchor" href="#notes-9">§</a>Notes</h5>
+<ul>
+<li>This method is intended for disassembly tools and debugging</li>
+<li>Control flow instructions (e.g. branches, jumps) are not followed;
+execution proceeds linearly</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.step" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#730-745">Source</a><h4 class="code-header">pub fn <a href="#method.step" class="fn">step</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Executes a single fetch–decode–execute cycle.</p>
+<p>This method implements one full step of the CPU pipeline:</p>
+<div class="example-wrap"><pre class="language-text"><code>fetch → decode → execute → (optional PC advance)</code></pre></div>
+<p>If the CPU is not running (<code>self.running == false</code>), this method
+returns immediately without performing any work.</p>
+<h5 id="pc-advancement-rules"><a class="doc-anchor" href="#pc-advancement-rules">§</a>PC advancement rules</h5>
+<p>After <a href="struct.CPU.html#method.execute" title="method riscv::cpu::CPU::execute"><code>CPU::execute</code></a> returns, the program counter (PC) is advanced
+<strong>only when all of the following conditions hold</strong>:</p>
+<ol>
+<li>The CPU is still running (<code>self.running == true</code>). Instructions such
+as <code>ecall</code> may stop execution (e.g. program exit) before this step.</li>
+<li>The PC was <strong>not</strong> modified by the executed instruction. Control-flow
+instructions (e.g. branches and jumps) update the PC directly during
+execution.</li>
+<li>The resulting address is valid. Bounds checking is delegated to
+<a href="struct.CPU.html#method.advance_pc" title="method riscv::cpu::CPU::advance_pc"><code>CPU::advance_pc</code></a> and ultimately to the underlying
+<a href="../vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a>.</li>
+</ol>
+<h5 id="errors-15"><a class="doc-anchor" href="#errors-15">§</a>Errors</h5>
+<ul>
+<li><a href="enum.CPUError.html#variant.InstructionAddressMisaligned" title="variant riscv::cpu::CPUError::InstructionAddressMisaligned"><code>CPUError::InstructionAddressMisaligned</code></a> — if the PC is not
+4-byte aligned during fetch</li>
+<li><a href="enum.CPUError.html#variant.IllegalInstruction" title="variant riscv::cpu::CPUError::IllegalInstruction"><code>CPUError::IllegalInstruction</code></a> — if decoding fails</li>
+<li><a href="enum.CPUError.html#variant.VM" title="variant riscv::cpu::CPUError::VM"><code>CPUError::VM</code></a> — if any memory access or PC update fails</li>
+</ul>
+<h5 id="guarantees-9"><a class="doc-anchor" href="#guarantees-9">§</a>Guarantees</h5>
+<ul>
+<li>At most one instruction is executed</li>
+<li>The PC is advanced at most once</li>
+<li>No partial state updates occur on error</li>
+<li>If <code>self.running == false</code>, no state is modified</li>
+</ul>
+<h5 id="notes-10"><a class="doc-anchor" href="#notes-10">§</a>Notes</h5>
+<ul>
+<li>This method is the core building block of <a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a></li>
+<li>Control flow instructions are responsible for updating the PC
+explicitly during the execute stage</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.run" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#770-778">Source</a><h4 class="code-header">pub fn <a href="#method.run" class="fn">run</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Runs the CPU until execution stops.</p>
+<p>This method repeatedly executes instructions by calling <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a>
+in a loop while the CPU is in the running state.</p>
+<p>Execution begins by setting <code>self.running = true</code> and continues until
+an instruction (e.g. <code>ecall</code>) sets it to <code>false</code>, or an error occurs.</p>
+<h5 id="errors-16"><a class="doc-anchor" href="#errors-16">§</a>Errors</h5>
+<ul>
+<li>Propagates any error returned by <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a></li>
+</ul>
+<h5 id="guarantees-10"><a class="doc-anchor" href="#guarantees-10">§</a>Guarantees</h5>
+<ul>
+<li>Instructions are executed sequentially according to <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a></li>
+<li>Execution stops immediately on error</li>
+<li>The CPU may stop normally by setting <code>self.running = false</code></li>
+</ul>
+<h5 id="notes-11"><a class="doc-anchor" href="#notes-11">§</a>Notes</h5>
+<ul>
+<li>This is the primary execution entry point for programs</li>
+<li>For single-step execution, use <a href="struct.CPU.html#method.step" title="method riscv::cpu::CPU::step"><code>CPU::step</code></a></li>
+<li>For disassembly mode, use <a href="struct.CPU.html#method.run_disassemble" title="method riscv::cpu::CPU::run_disassemble"><code>CPU::run_disassemble</code></a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.run_disassemble" class="method"><a class="src rightside" href="../../src/riscv/cpu/mod.rs.html#827-850">Source</a><h4 class="code-header">pub fn <a href="#method.run_disassemble" class="fn">run_disassemble</a>(&amp;mut self, elf: <a class="struct" href="../risc_v/struct.ElfImage.html" title="struct riscv::risc_v::ElfImage">ElfImage</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CPUError.html" title="enum riscv::cpu::CPUError">CPUError</a>&gt;</h4></section></summary><div class="docblock"><p>Disassembles all executable segments of an ELF image.</p>
+<p>This method iterates over each loadable segment in the provided <a href="../risc_v/struct.ElfImage.html" title="struct riscv::risc_v::ElfImage"><code>ElfImage</code></a>
+and performs a <strong>linear disassembly</strong> of its contents.</p>
+<p>For each segment:</p>
+<ol>
+<li>The program counter (PC) is set to the segment’s start address.</li>
+<li>Instructions are fetched and decoded using <a href="struct.CPU.html#method.disassemble" title="method riscv::cpu::CPU::disassemble"><code>CPU::disassemble</code></a>.</li>
+<li>Each decoded instruction is printed alongside its address.</li>
+<li>The process continues until the end of the segment is reached or an error occurs.</li>
+</ol>
+<p>Unlike <a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a>, this method does <strong>not execute instructions</strong> — it only
+decodes and displays them.</p>
+<h5 id="output"><a class="doc-anchor" href="#output">§</a>Output</h5>
+<p>The disassembly is printed to standard output in the form:</p>
+<div class="example-wrap"><pre class="language-text"><code>== Segment 0xXXXXXXXX - 0xXXXXXXXX ==
+0xXXXXXXXX: &lt;instruction&gt;</code></pre></div>
+<p>If an error occurs during decoding, the disassembly stops for the current
+segment and reports the failure:</p>
+<div class="example-wrap"><pre class="language-text"><code>Stopped at 0xXXXXXXXX: &lt;error&gt;</code></pre></div><h5 id="errors-17"><a class="doc-anchor" href="#errors-17">§</a>Errors</h5>
+<ul>
+<li>Returns <a href="enum.CPUError.html" title="enum riscv::cpu::CPUError"><code>CPUError</code></a> if setting the initial PC fails</li>
+<li>Errors during disassembly are handled internally and reported via output</li>
+</ul>
+<h5 id="notes-12"><a class="doc-anchor" href="#notes-12">§</a>Notes</h5>
+<ul>
+<li>This method performs a <strong>linear sweep disassembly</strong> (no control-flow analysis)</li>
+<li>Invalid or data regions within a segment may produce decoding errors</li>
+<li>Each segment is processed independently</li>
+<li>The CPU <code>running</code> state is not used in this mode</li>
+</ul>
+<h5 id="see-also"><a class="doc-anchor" href="#see-also">§</a>See also</h5>
+<ul>
+<li><a href="struct.CPU.html#method.disassemble" title="method riscv::cpu::CPU::disassemble"><code>CPU::disassemble</code></a> — disassembles a single instruction</li>
+<li><a href="struct.CPU.html#method.run" title="method riscv::cpu::CPU::run"><code>CPU::run</code></a> — executes instructions instead of decoding them</li>
+</ul>
+</div></details></div></details></div><h2 id="synthetic-implementations" class="section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-Freeze-for-CPU" class="impl"><a href="#impl-Freeze-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Freeze.html" title="trait core::marker::Freeze">Freeze</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-RefUnwindSafe-for-CPU" class="impl"><a href="#impl-RefUnwindSafe-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-Send-for-CPU" class="impl"><a href="#impl-Send-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-Sync-for-CPU" class="impl"><a href="#impl-Sync-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-Unpin-for-CPU" class="impl"><a href="#impl-Unpin-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-UnsafeUnpin-for-CPU" class="impl"><a href="#impl-UnsafeUnpin-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.UnsafeUnpin.html" title="trait core::marker::UnsafeUnpin">UnsafeUnpin</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section><section id="impl-UnwindSafe-for-CPU" class="impl"><a href="#impl-UnwindSafe-for-CPU" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/panic/unwind_safe/trait.UnwindSafe.html" title="trait core::panic::unwind_safe::UnwindSafe">UnwindSafe</a> for <a class="struct" href="struct.CPU.html" title="struct riscv::cpu::CPU">CPU</a></h3></section></div><h2 id="blanket-implementations" class="section-header">Blanket Implementations<a href="#blanket-implementations" class="anchor">§</a></h2><div id="blanket-implementations-list"><details class="toggle implementors-toggle"><summary><section id="impl-Any-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/any.rs.html#141">Source</a><a href="#impl-Any-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> for T<div class="where">where
+    T: 'static + ?<a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.type_id" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/any.rs.html#142">Source</a><a href="#method.type_id" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html#tymethod.type_id" class="fn">type_id</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.95.0/core/any/struct.TypeId.html" title="struct core::any::TypeId">TypeId</a></h4></section></summary><div class='docblock'>Gets the <code>TypeId</code> of <code>self</code>. <a href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html#tymethod.type_id">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Borrow%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/borrow.rs.html#212">Source</a><a href="#impl-Borrow%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T&gt; for T<div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.borrow" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/borrow.rs.html#214">Source</a><a href="#method.borrow" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/borrow/trait.Borrow.html#tymethod.borrow" class="fn">borrow</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.reference.html">&amp;T</a></h4></section></summary><div class='docblock'>Immutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.95.0/core/borrow/trait.Borrow.html#tymethod.borrow">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-BorrowMut%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/borrow.rs.html#221">Source</a><a href="#impl-BorrowMut%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/borrow/trait.BorrowMut.html" title="trait core::borrow::BorrowMut">BorrowMut</a>&lt;T&gt; for T<div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.borrow_mut" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/borrow.rs.html#222">Source</a><a href="#method.borrow_mut" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut" class="fn">borrow_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.reference.html">&amp;mut T</a></h4></section></summary><div class='docblock'>Mutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.95.0/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut">Read more</a></div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-From%3CT%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#785">Source</a><a href="#impl-From%3CT%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for T</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#788">Source</a><a href="#method.from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.From.html#tymethod.from" class="fn">from</a>(t: T) -&gt; T</h4></section></summary><div class="docblock"><p>Returns the argument unchanged.</p>
+</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Into%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#767-769">Source</a><a href="#impl-Into%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;U&gt; for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#777">Source</a><a href="#method.into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.Into.html#tymethod.into" class="fn">into</a>(self) -&gt; U</h4></section></summary><div class="docblock"><p>Calls <code>U::from(self)</code>.</p>
 <p>That is, this conversion is whatever the implementation of
-<code><a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for U</code> chooses to do.</p>
-</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryFrom%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#827-829">Source</a><a href="#impl-TryFrom%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt; for T<div class="where">where
-    U: <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#831">Source</a><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html#associatedtype.Error" class="associatedtype">Error</a> = <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/convert/enum.Infallible.html" title="enum core::convert::Infallible">Infallible</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#834">Source</a><a href="#method.try_from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html#tymethod.try_from" class="fn">try_from</a>(value: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, &lt;T as <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryInto%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#811-813">Source</a><a href="#impl-TryInto%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;U&gt; for T<div class="where">where
-    U: <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#815">Source</a><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryInto.html#associatedtype.Error" class="associatedtype">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.94.1/src/core/convert/mod.rs.html#818">Source</a><a href="#method.try_into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryInto.html#tymethod.try_into" class="fn">try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.94.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.94.1/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details></div></section></div></main></body></html>
+<code><a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for U</code> chooses to do.</p>
+</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryFrom%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#827-829">Source</a><a href="#impl-TryFrom%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt; for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#831">Source</a><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html#associatedtype.Error" class="associatedtype">Error</a> = <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/convert/enum.Infallible.html" title="enum core::convert::Infallible">Infallible</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_from" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#834">Source</a><a href="#method.try_from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html#tymethod.try_from" class="fn">try_from</a>(value: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, &lt;T as <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TryInto%3CU%3E-for-T" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#811-813">Source</a><a href="#impl-TryInto%3CU%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;U&gt; for T<div class="where">where
+    U: <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,</div></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Error" class="associatedtype trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#815">Source</a><a href="#associatedtype.Error" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryInto.html#associatedtype.Error" class="associatedtype">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></h4></section></summary><div class='docblock'>The type returned in the event of a conversion error.</div></details><details class="toggle method-toggle" open><summary><section id="method.try_into" class="method trait-impl"><a class="src rightside" href="https://doc.rust-lang.org/1.95.0/src/core/convert/mod.rs.html#818">Source</a><a href="#method.try_into" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryInto.html#tymethod.try_into" class="fn">try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.95.0/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Performs the conversion.</div></details></div></details></div></section></div></main></body></html>
