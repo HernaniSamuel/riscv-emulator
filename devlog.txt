@@ -249,3 +249,27 @@ After ~8hours of hard work, the documentation (and Rv32I) is DONE! This is a com
 I spent 21 days on it, but I spent 10 days making that md stuff which I thought would be the official documentation of the project since I didn't know about the existence of the cargo doc...
 Another benefit of making this emulator is the English language... I never had to read and write so mutch as I made in this project! It's good for practice and improve English skills
 Monday I'll start implementing the M extension, I guess it's only 8 additional instructions, easy compared with I made here!
+
+
+Day 22 - 20/04/2026
+Let's implement the first extension of the base of the Risc-v emulator! The M extension is not necessary, but is too basic and has too many benefits that I'll implement it!
+Only 8 additional instructions that allows our emulator to make multiplication/division operations and run FreeRTOS faster and run Forth implementations as Mecrisp Quintus!
+Here is the step-by-step that I'll make today to modify my emulator:
+    1. modify Instruction to understand the M extension instructions
+    2. modify decode method to emmit the M extension instructions
+    3. modify execute method to execute the M extension instructions
+    4. implement tests for all new instructions
+    5. document all new instructions and change the documentation to stop saying that the emulator is only for RV32I (since we have RV32IMZifencei)
+
+| Instruction | Description                                     |
+| ----------- | ----------------------------------------------- |
+| MUL         | Lower 32 bits of the product                    |
+| MULH        | Upper 32 bits of signed × signed multiplication |
+| MULHU       | Upper 32 bits of unsigned × unsigned            |
+| MULHSU      | Upper 32 bits of signed × unsigned              |
+| DIV         | signed division                                 |
+| DIVU        | unsigned division                               |
+| REM         | signed remainder                                |
+| REMU        | unsigned remainder                              |
+
+Ok, decode done! 

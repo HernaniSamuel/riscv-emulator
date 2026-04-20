@@ -378,6 +378,83 @@ impl CPU {
 
             // ===================== Memory ordering =====================
             Fence | FenceI => (), // no-op for RV32I
+
+            // ===================== RV32M =====================
+            Mul { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)? as i32 as i64;
+                let b = self.get_x(rs2 as usize)? as i32 as i64;
+                let val = a.wrapping_mul(b) as u64 as u32;
+                self.set_x(rd as usize, val)?;
+            }
+
+            Mulh { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)? as i32 as i64;
+                let b = self.get_x(rs2 as usize)? as i32 as i64;
+                let val = ((a.wrapping_mul(b)) >> 32) as u32;
+                self.set_x(rd as usize, val)?;
+            }
+
+            Mulhsu { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)? as i32 as i64;
+                let b = self.get_x(rs2 as usize)? as u64 as i64;
+                let val = ((a.wrapping_mul(b)) >> 32) as u32;
+                self.set_x(rd as usize, val)?;
+            }
+
+            Mulhu { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)? as u64;
+                let b = self.get_x(rs2 as usize)? as u64;
+                let val = a.wrapping_mul(b).wrapping_shr(32) as u32;
+                self.set_x(rd as usize, val)?;
+            }
+
+            Div { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)? as i32;
+                let b = self.get_x(rs2 as usize)? as i32;
+
+                let val = if b == 0 {
+                    u32::MAX
+                } else if a == i32::MIN && b == -1 {
+                    a as u32
+                } else {
+                    (a / b) as u32
+                };
+
+                self.set_x(rd as usize, val)?;
+            }
+
+            Divu { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)?;
+                let b = self.get_x(rs2 as usize)?;
+
+                let val = if b == 0 { u32::MAX } else { a / b };
+
+                self.set_x(rd as usize, val)?;
+            }
+
+            Rem { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)? as i32;
+                let b = self.get_x(rs2 as usize)? as i32;
+
+                let val = if b == 0 {
+                    a as u32
+                } else if a == i32::MIN && b == -1 {
+                    0
+                } else {
+                    (a % b) as u32
+                };
+
+                self.set_x(rd as usize, val)?;
+            }
+
+            Remu { rd, rs1, rs2 } => {
+                let a = self.get_x(rs1 as usize)?;
+                let b = self.get_x(rs2 as usize)?;
+
+                let val = if b == 0 { a } else { a % b };
+
+                self.set_x(rd as usize, val)?;
+            }
         }
 
         Ok(())
@@ -386,7 +463,7 @@ impl CPU {
 
 // TESTS
 #[cfg(test)]
-mod guardrail_tests {
+mod tests {
     use super::*;
     use crate::risc_v::ElfImage;
 
@@ -407,7 +484,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_x0_is_always_zero_after_write() {
+    fn x0_is_always_zero_after_write() {
         let mut cpu = dummy_cpu();
         cpu.set_x(1, 999).unwrap();
 
@@ -437,7 +514,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_arithmetic_does_not_touch_pc() {
+    fn arithmetic_does_not_touch_pc() {
         let mut cpu = dummy_cpu();
         cpu.set_pc(0x100).unwrap();
         cpu.set_x(1, 10).unwrap();
@@ -508,7 +585,7 @@ mod guardrail_tests {
     }
 
     #[test]
-    fn guardrail_immediate_ops_do_not_touch_pc() {
+    fn immediate_ops_do_not_touch_pc() {
         let mut cpu = dummy_cpu();
         cpu.set_pc(0x200).unwrap();
         cpu.set_x(1, 5).unwrap();
@@ -578,7 +655,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_untaken_branch_preserves_pc() {
+    fn untaken_branch_preserves_pc() {
         let mut cpu = dummy_cpu();
         cpu.set_pc(0x100).unwrap();
         cpu.set_x(1, 1).unwrap();
@@ -654,7 +731,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_load_sign_extension() {
+    fn load_sign_extension() {
         let mut cpu = dummy_cpu();
         // Write 0xFF to a byte → since i8 is -1 → sign-extended = 0xFFFFFFFF
         cpu.set_x(1, 0).unwrap();
@@ -721,7 +798,7 @@ mod guardrail_tests {
     }
 
     #[test]
-    fn guardrail_lh_sign_extend_negative_halfword() {
+    fn lh_sign_extend_negative_halfword() {
         let mut cpu = dummy_cpu();
         // Write 0x80FF to memory (little-endian: FF 80)
         cpu.set_x(1, 0).unwrap();
@@ -751,7 +828,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_sra_preserves_sign_bit() {
+    fn sra_preserves_sign_bit() {
         let mut cpu = dummy_cpu();
 
         // Negative number: MSB = 1
@@ -803,7 +880,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_shamt_masked_to_5_bits() {
+    fn shamt_masked_to_5_bits() {
         let mut cpu = dummy_cpu();
         cpu.set_x(1, 1).unwrap();
 
@@ -852,7 +929,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_jalr_clears_bit0() {
+    fn jalr_clears_bit0() {
         let mut cpu = dummy_cpu();
         cpu.set_pc(0x100).unwrap();
 
@@ -890,7 +967,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_unknown_ecall_returns_error() {
+    fn unknown_ecall_returns_error() {
         let mut cpu = dummy_cpu();
         cpu.set_x(17, 9999).unwrap(); // syscall not found
 
@@ -907,7 +984,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_ecall_exit_halts_cpu() {
+    fn ecall_exit_halts_cpu() {
         for code in [0i32, 1, -1, 127] {
             let mut cpu = dummy_cpu();
             cpu.set_x(10, code as u32).unwrap(); // a0
@@ -932,7 +1009,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_auipc_uses_current_pc() {
+    fn auipc_uses_current_pc() {
         let mut cpu = dummy_cpu();
 
         cpu.set_pc(0x0000_1000).unwrap();
@@ -959,7 +1036,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_slt_vs_sltu_signed_unsigned() {
+    fn slt_vs_sltu_signed_unsigned() {
         let mut cpu = dummy_cpu();
         cpu.set_x(1, 0xFFFF_FFFF).unwrap(); // -1 signed, u32::MAX unsigned
         cpu.set_x(2, 1).unwrap();
@@ -992,7 +1069,7 @@ mod guardrail_tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn guardrail_nop_instructions_do_not_change_state() {
+    fn nop_instructions_do_not_change_state() {
         let mut cpu = dummy_cpu();
         cpu.set_pc(0x400).unwrap();
         cpu.set_x(1, 0xCAFE).unwrap();
@@ -1012,5 +1089,635 @@ mod guardrail_tests {
             "no-ops should not change the registers"
         );
         assert!(cpu.is_running(), "no-ops should not stop the CPU");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RV32M EXECUTE GUARDRAILS
+    // When these tests pass, the M-extension execute logic is correct:
+    // correct arithmetic, all edge cases per the RISC-V spec, and x0 is
+    // never clobbered.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── MUL ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mul_basic() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 6).unwrap();
+        cpu.set_x(2, 7).unwrap();
+        cpu.execute(Mul {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 42);
+    }
+
+    #[test]
+    fn mul_signed_negative() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, (-3i32) as u32).unwrap();
+        cpu.set_x(2, 4u32).unwrap();
+        cpu.execute(Mul {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), (-12i32) as u32);
+    }
+
+    #[test]
+    fn mul_both_negative() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, (-3i32) as u32).unwrap();
+        cpu.set_x(2, (-4i32) as u32).unwrap();
+        cpu.execute(Mul {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 12);
+    }
+
+    #[test]
+    fn mul_overflow_wraps_low32() {
+        // 0x80000000 * 2 overflows; MUL keeps the low 32 bits → 0
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0x8000_0000).unwrap();
+        cpu.set_x(2, 2).unwrap();
+        cpu.execute(Mul {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0);
+    }
+
+    #[test]
+    fn mul_by_zero() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xDEAD_BEEF).unwrap();
+        cpu.set_x(2, 0).unwrap();
+        cpu.execute(Mul {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0);
+    }
+
+    #[test]
+    fn mul_rd_zero_silent() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 999).unwrap();
+        cpu.set_x(2, 999).unwrap();
+        cpu.execute(Mul {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(0).unwrap(), 0);
+    }
+
+    // ── MULH ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mulh_positive() {
+        let mut cpu = dummy_cpu();
+        // 0x7FFFFFFF * 0x7FFFFFFF → high 32 bits = 0x3FFF_FFFF
+        cpu.set_x(1, 0x7FFF_FFFF).unwrap();
+        cpu.set_x(2, 0x7FFF_FFFF).unwrap();
+        cpu.execute(Mulh {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0x3FFF_FFFF);
+    }
+
+    #[test]
+    fn mulh_negative_times_positive() {
+        let mut cpu = dummy_cpu();
+        // (-1) * 1 = -1; high 32 bits of 64-bit -1 = 0xFFFF_FFFF
+        cpu.set_x(1, (-1i32) as u32).unwrap();
+        cpu.set_x(2, 1).unwrap();
+        cpu.execute(Mulh {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0xFFFF_FFFF);
+    }
+
+    #[test]
+    fn mulh_both_negative() {
+        let mut cpu = dummy_cpu();
+        // (-1) * (-1) = 1; high 32 bits = 0
+        cpu.set_x(1, (-1i32) as u32).unwrap();
+        cpu.set_x(2, (-1i32) as u32).unwrap();
+        cpu.execute(Mulh {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0);
+    }
+
+    #[test]
+    fn mulh_min_times_min() {
+        let mut cpu = dummy_cpu();
+        // i32::MIN * i32::MIN = 2^62; high 32 bits = 0x4000_0000
+        cpu.set_x(1, i32::MIN as u32).unwrap();
+        cpu.set_x(2, i32::MIN as u32).unwrap();
+        cpu.execute(Mulh {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0x4000_0000);
+    }
+
+    // ── MULHSU ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mulhsu_positive_rs1() {
+        let mut cpu = dummy_cpu();
+        // rs1=2 (signed), rs2=0xFFFF_FFFF (unsigned)
+        // 2 * 4294967295 = 8589934590 → high32 = 1
+        cpu.set_x(1, 2).unwrap();
+        cpu.set_x(2, 0xFFFF_FFFF).unwrap();
+        cpu.execute(Mulhsu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 1);
+    }
+
+    #[test]
+    fn mulhsu_negative_rs1() {
+        let mut cpu = dummy_cpu();
+        // rs1=-1 (signed), rs2=0xFFFF_FFFF (unsigned as i64 = 4294967295)
+        // (-1 as i64) * 4294967295 = -4294967295
+        // high32 of that = 0xFFFF_FFFF
+        cpu.set_x(1, (-1i32) as u32).unwrap();
+        cpu.set_x(2, 0xFFFF_FFFF).unwrap();
+        cpu.execute(Mulhsu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0xFFFF_FFFF);
+    }
+
+    #[test]
+    fn mulhsu_zero_rs2() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xDEAD_BEEF).unwrap();
+        cpu.set_x(2, 0).unwrap();
+        cpu.execute(Mulhsu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0);
+    }
+
+    // ── MULHU ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn mulhu_large_values() {
+        let mut cpu = dummy_cpu();
+        // 0xFFFF_FFFF * 0xFFFF_FFFF → high32 = 0xFFFF_FFFE
+        cpu.set_x(1, 0xFFFF_FFFF).unwrap();
+        cpu.set_x(2, 0xFFFF_FFFF).unwrap();
+        cpu.execute(Mulhu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0xFFFF_FFFE);
+    }
+
+    #[test]
+    fn mulhu_small_result() {
+        let mut cpu = dummy_cpu();
+        // 2 * 3 = 6; fits in low32, so high32 = 0
+        cpu.set_x(1, 2).unwrap();
+        cpu.set_x(2, 3).unwrap();
+        cpu.execute(Mulhu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0);
+    }
+
+    // ── DIV ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn div_basic() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 20).unwrap();
+        cpu.set_x(2, 4).unwrap();
+        cpu.execute(Div {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 5);
+    }
+
+    #[test]
+    fn div_truncates_toward_zero() {
+        let mut cpu = dummy_cpu();
+        // -7 / 2 = -3 (truncated toward zero, not -4)
+        cpu.set_x(1, (-7i32) as u32).unwrap();
+        cpu.set_x(2, 2).unwrap();
+        cpu.execute(Div {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap() as i32, -3);
+    }
+
+    #[test]
+    fn div_by_zero_returns_minus_one() {
+        // RISC-V spec: DIV rd, rs1, 0 → rd = -1 (all bits set = u32::MAX)
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 42).unwrap();
+        cpu.set_x(2, 0).unwrap();
+        cpu.execute(Div {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), u32::MAX);
+    }
+
+    #[test]
+    fn div_overflow_min_by_minus_one() {
+        // RISC-V spec: i32::MIN / -1 overflows → result is i32::MIN (no trap)
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, i32::MIN as u32).unwrap();
+        cpu.set_x(2, (-1i32) as u32).unwrap();
+        cpu.execute(Div {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), i32::MIN as u32);
+    }
+
+    #[test]
+    fn div_negative_dividend() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, (-9i32) as u32).unwrap();
+        cpu.set_x(2, 3).unwrap();
+        cpu.execute(Div {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap() as i32, -3);
+    }
+
+    // ── DIVU ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn divu_basic() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 100).unwrap();
+        cpu.set_x(2, 4).unwrap();
+        cpu.execute(Divu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 25);
+    }
+
+    #[test]
+    fn divu_by_zero_returns_max() {
+        // RISC-V spec: DIVU rd, rs1, 0 → rd = u32::MAX
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xDEAD_BEEF).unwrap();
+        cpu.set_x(2, 0).unwrap();
+        cpu.execute(Divu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), u32::MAX);
+    }
+
+    #[test]
+    fn divu_treats_operands_as_unsigned() {
+        // 0xFFFF_FFFF as unsigned = 4294967295; / 2 = 2147483647 = 0x7FFF_FFFF
+        // If signed, it would be (-1 / 2 = 0), which is wrong for DIVU
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xFFFF_FFFF).unwrap();
+        cpu.set_x(2, 2).unwrap();
+        cpu.execute(Divu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0x7FFF_FFFF);
+    }
+
+    // ── REM ──────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn rem_basic() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 10).unwrap();
+        cpu.set_x(2, 3).unwrap();
+        cpu.execute(Rem {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 1);
+    }
+
+    #[test]
+    fn rem_sign_follows_dividend() {
+        // RISC-V spec: remainder sign matches the dividend (rs1)
+        // -7 % 2 = -1, not 1
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, (-7i32) as u32).unwrap();
+        cpu.set_x(2, 2).unwrap();
+        cpu.execute(Rem {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap() as i32, -1);
+    }
+
+    #[test]
+    fn rem_by_zero_returns_dividend() {
+        // RISC-V spec: REM rd, rs1, 0 → rd = rs1
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 42).unwrap();
+        cpu.set_x(2, 0).unwrap();
+        cpu.execute(Rem {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 42);
+    }
+
+    #[test]
+    fn rem_overflow_min_by_minus_one() {
+        // RISC-V spec: i32::MIN % -1 → 0 (no trap, remainder is zero)
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, i32::MIN as u32).unwrap();
+        cpu.set_x(2, (-1i32) as u32).unwrap();
+        cpu.execute(Rem {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0);
+    }
+
+    #[test]
+    fn rem_negative_dividend_positive_divisor() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, (-10i32) as u32).unwrap();
+        cpu.set_x(2, 3).unwrap();
+        cpu.execute(Rem {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap() as i32, -1);
+    }
+
+    // ── REMU ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn remu_basic() {
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 10).unwrap();
+        cpu.set_x(2, 3).unwrap();
+        cpu.execute(Remu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 1);
+    }
+
+    #[test]
+    fn remu_by_zero_returns_dividend() {
+        // RISC-V spec: REMU rd, rs1, 0 → rd = rs1
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xDEAD_BEEF).unwrap();
+        cpu.set_x(2, 0).unwrap();
+        cpu.execute(Remu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 0xDEAD_BEEF);
+    }
+
+    #[test]
+    fn remu_treats_operands_as_unsigned() {
+        // 0xFFFF_FFFF % 0xFFFFFFFE = 1 when treated as unsigned.
+        // If treated as signed: -1 % -2 = -1 (≠ 1) — would expose a sign bug.
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xFFFF_FFFF).unwrap();
+        cpu.set_x(2, 0xFFFF_FFFE).unwrap();
+        cpu.execute(Remu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(cpu.get_x(3).unwrap(), 1);
+    }
+
+    // ── CROSS-INSTRUCTION INVARIANTS ─────────────────────────────────────────
+
+    #[test]
+    fn div_rem_identity() {
+        // For any a, b ≠ 0: (a/b)*b + (a%b) == a  (signed)
+        let mut cpu = dummy_cpu();
+        let a: i32 = -100;
+        let b: i32 = 7;
+        cpu.set_x(1, a as u32).unwrap();
+        cpu.set_x(2, b as u32).unwrap();
+        cpu.execute(Div {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Rem {
+            rd: 4,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        let q = cpu.get_x(3).unwrap() as i32;
+        let r = cpu.get_x(4).unwrap() as i32;
+        assert_eq!(q * b + r, a, "DIV/REM identity failed");
+    }
+
+    #[test]
+    fn divu_remu_identity() {
+        // Same identity, unsigned: (a/b)*b + (a%b) == a
+        let mut cpu = dummy_cpu();
+        let a: u32 = 0xDEAD_BEEF;
+        let b: u32 = 1000;
+        cpu.set_x(1, a).unwrap();
+        cpu.set_x(2, b).unwrap();
+        cpu.execute(Divu {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Remu {
+            rd: 4,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        let q = cpu.get_x(3).unwrap();
+        let r = cpu.get_x(4).unwrap();
+        assert_eq!(
+            q.wrapping_mul(b).wrapping_add(r),
+            a,
+            "DIVU/REMU identity failed"
+        );
+    }
+
+    #[test]
+    fn mul_mulh_reconstruct_full_product() {
+        // MUL gives low32, MULH gives high32.
+        // Together they reconstruct the full 64-bit signed product.
+        let mut cpu = dummy_cpu();
+        let a: i32 = -123456;
+        let b: i32 = 654321;
+        let expected = (a as i64).wrapping_mul(b as i64) as u64;
+        cpu.set_x(1, a as u32).unwrap();
+        cpu.set_x(2, b as u32).unwrap();
+        cpu.execute(Mul {
+            rd: 3,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Mulh {
+            rd: 4,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        let lo = cpu.get_x(3).unwrap() as u64;
+        let hi = cpu.get_x(4).unwrap() as u64;
+        let got = (hi << 32) | lo;
+        assert_eq!(
+            got, expected,
+            "MUL+MULH did not reconstruct the full 64-bit product"
+        );
+    }
+
+    #[test]
+    fn all_m_instructions_respect_x0() {
+        // Every M-extension instruction must silently discard writes to x0.
+        let mut cpu = dummy_cpu();
+        cpu.set_x(1, 0xFFFF_FFFF).unwrap();
+        cpu.set_x(2, 7).unwrap();
+        cpu.execute(Mul {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Mulh {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Mulhsu {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Mulhu {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Div {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Divu {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Rem {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        cpu.execute(Remu {
+            rd: 0,
+            rs1: 1,
+            rs2: 2,
+        })
+        .unwrap();
+        assert_eq!(
+            cpu.get_x(0).unwrap(),
+            0,
+            "x0 must remain zero after all M-extension writes"
+        );
     }
 }

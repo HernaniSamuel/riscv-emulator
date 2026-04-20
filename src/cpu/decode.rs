@@ -170,6 +170,16 @@ impl CPU {
                 (0x5, 0x20) => Instruction::Sra { rd, rs1, rs2 },
                 (0x6, 0x00) => Instruction::Or { rd, rs1, rs2 },
                 (0x7, 0x00) => Instruction::And { rd, rs1, rs2 },
+
+                // ---------- RV32M ----------
+                (0x0, 0x01) => Instruction::Mul { rd, rs1, rs2 },
+                (0x1, 0x01) => Instruction::Mulh { rd, rs1, rs2 },
+                (0x2, 0x01) => Instruction::Mulhsu { rd, rs1, rs2 },
+                (0x3, 0x01) => Instruction::Mulhu { rd, rs1, rs2 },
+                (0x4, 0x01) => Instruction::Div { rd, rs1, rs2 },
+                (0x5, 0x01) => Instruction::Divu { rd, rs1, rs2 },
+                (0x6, 0x01) => Instruction::Rem { rd, rs1, rs2 },
+                (0x7, 0x01) => Instruction::Remu { rd, rs1, rs2 },
                 _ => return Err(CPUError::IllegalInstruction(instruction)),
             },
 
@@ -873,12 +883,12 @@ mod tests {
         assert_eq!(c.decode(0b0001111).unwrap(), Instruction::Fence);
     }
 
-    // ── Erros de decodificação ────────────────────────────────────────────────────
+    // ── Decoding errors ────────────────────────────────────────────────────
 
     #[test]
     fn decode_unknown_opcode_returns_illegal() {
         let mut cpu = dummy_cpu();
-        // opcode 0b0000000 não existe em RV32I
+        // Opcode 0b0000000 does not exist in RV32I
         assert!(matches!(
             cpu.decode(0x0000_0000),
             Err(CPUError::IllegalInstruction(0x0000_0000))
@@ -888,11 +898,244 @@ mod tests {
     #[test]
     fn decode_r_type_bad_funct7_returns_illegal() {
         let mut cpu = dummy_cpu();
-        // ADD com funct7=0x01 (seria M-extension, não implementado)
-        let raw = r_type(0b0110011, 0x0, 0x01, 1, 2, 3);
+        // funct7=0x02 não pertence nem à extensão I (0x00/0x20) nem à M (0x01)
+        let raw = r_type(0b0110011, 0x0, 0x02, 1, 2, 3);
         assert!(matches!(
             cpu.decode(raw),
             Err(CPUError::IllegalInstruction(_))
         ));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // GUARDRAILS — M extension (RV32IM)
+    // When these tests pass, the M extension decode is correct and does not
+    // collide with the I extension in any way.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── 1. M vs I DISTINCTION ────────────────────────────────────────────────
+    // Same opcode (0110011) and same funct3, but different funct7.
+    // A classic bug is ignoring funct7 and returning the wrong instruction.
+
+    #[test]
+    fn m_vs_i_mul_is_not_add() {
+        // funct7=0x00, funct3=0x0 → ADD (I extension), never Mul
+        let instr = dummy_cpu()
+            .decode(r_type(0b0110011, 0x0, 0x00, 1, 2, 3))
+            .unwrap();
+        assert_ne!(
+            instr,
+            Instruction::Mul {
+                rd: 1,
+                rs1: 2,
+                rs2: 3
+            }
+        );
+    }
+
+    #[test]
+    fn m_vs_i_div_is_not_sub() {
+        // funct7=0x20, funct3=0x4 → (no valid I instruction in this slot,
+        // but ensures funct7=0x01 is not being ignored)
+        let result = dummy_cpu().decode(r_type(0b0110011, 0x4, 0x20, 1, 2, 3));
+        // must be error or another valid decode, never Div
+        if let Ok(instr) = result {
+            assert_ne!(
+                instr,
+                Instruction::Div {
+                    rd: 1,
+                    rs1: 2,
+                    rs2: 3
+                }
+            )
+        }
+    }
+
+    #[test]
+    fn m_vs_i_rem_is_not_or() {
+        // funct7=0x00, funct3=0x6 → OR (I extension)
+        let instr = dummy_cpu()
+            .decode(r_type(0b0110011, 0x6, 0x00, 5, 6, 7))
+            .unwrap();
+        assert_ne!(
+            instr,
+            Instruction::Rem {
+                rd: 5,
+                rs1: 6,
+                rs2: 7
+            }
+        );
+    }
+
+    #[test]
+    fn m_vs_i_remu_is_not_and() {
+        // funct7=0x00, funct3=0x7 → AND (I extension)
+        let instr = dummy_cpu()
+            .decode(r_type(0b0110011, 0x7, 0x00, 5, 6, 7))
+            .unwrap();
+        assert_ne!(
+            instr,
+            Instruction::Remu {
+                rd: 5,
+                rs1: 6,
+                rs2: 7
+            }
+        );
+    }
+
+    // ── 2. INVALID funct7 → Err ──────────────────────────────────────────────
+    // Any funct7 other than 0x00 (I) or 0x01 (M) is an invalid encoding.
+    // The decoder must reject it, not silently accept it.
+
+    #[test]
+    fn invalid_funct7_0x02_is_error() {
+        assert!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x0, 0x02, 1, 2, 3))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn invalid_funct7_0x3f_is_error() {
+        assert!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x0, 0x3F, 1, 2, 3))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn invalid_funct7_0x7f_is_error() {
+        // Tests all funct7 bits set
+        assert!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x0, 0x7F, 1, 2, 3))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn invalid_funct7_affects_all_funct3() {
+        // Invalid funct7 must fail regardless of funct3
+        for funct3 in 0x0u32..=0x7 {
+            assert!(
+                dummy_cpu()
+                    .decode(r_type(0b0110011, funct3, 0x10, 1, 2, 3))
+                    .is_err(),
+                "funct3={funct3:#x} with funct7=0x10 should be Err"
+            );
+        }
+    }
+
+    // ── 3. EXTREME REGISTERS ────────────────────────────────────────────────
+    // Ensures bit extraction of rd / rs1 / rs2 fields works
+    // at the limits (x0 = 0 and x31 = 31).
+
+    #[test]
+    fn mul_with_rd_zero_and_max_registers() {
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x0, 0x01, 0, 31, 31))
+                .unwrap(),
+            Instruction::Mul {
+                rd: 0,
+                rs1: 31,
+                rs2: 31
+            }
+        );
+    }
+
+    #[test]
+    fn div_with_all_registers_maxed() {
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x4, 0x01, 31, 31, 31))
+                .unwrap(),
+            Instruction::Div {
+                rd: 31,
+                rs1: 31,
+                rs2: 31
+            }
+        );
+    }
+
+    #[test]
+    fn rem_with_all_registers_zero() {
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x6, 0x01, 0, 0, 0))
+                .unwrap(),
+            Instruction::Rem {
+                rd: 0,
+                rs1: 0,
+                rs2: 0
+            }
+        );
+    }
+
+    // ── 4. ALIASING / BIT EXTRACTION ─────────────────────────────────────────
+    // rs1 is in bits [19:15] and rs2 in bits [24:20].
+    // Values with bits in distinct positions expose swaps and bad extraction.
+
+    #[test]
+    fn mul_extracts_rs1_rs2_without_swap() {
+        // rs1=16 (0b10000) → isolated bit 19
+        // rs2=8  (0b01000) → isolated bit 23
+        // If the decoder swaps rs1↔rs2, the test fails
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x0, 0x01, 1, 16, 8))
+                .unwrap(),
+            Instruction::Mul {
+                rd: 1,
+                rs1: 16,
+                rs2: 8
+            }
+        );
+    }
+
+    #[test]
+    fn divu_extracts_rd_rs1_rs2_independently() {
+        // rd=5, rs1=6, rs2=7 — all different, none is 0 or 31
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x5, 0x01, 5, 6, 7))
+                .unwrap(),
+            Instruction::Divu {
+                rd: 5,
+                rs1: 6,
+                rs2: 7
+            }
+        );
+    }
+
+    #[test]
+    fn mulhu_rd_does_not_affect_rs1_rs2() {
+        // rd=0 (x0), rs1=10, rs2=20 — rd=zero must not contaminate other fields
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x3, 0x01, 0, 10, 20))
+                .unwrap(),
+            Instruction::Mulhu {
+                rd: 0,
+                rs1: 10,
+                rs2: 20
+            }
+        );
+    }
+
+    #[test]
+    fn remu_rs1_rs2_are_not_confused_with_asymmetric_values() {
+        // rs1=1, rs2=30 — maximum asymmetry to detect swap
+        assert_eq!(
+            dummy_cpu()
+                .decode(r_type(0b0110011, 0x7, 0x01, 15, 1, 30))
+                .unwrap(),
+            Instruction::Remu {
+                rd: 15,
+                rs1: 1,
+                rs2: 30
+            }
+        );
     }
 }

@@ -666,6 +666,108 @@ pub enum Instruction {
     /// - Required on real hardware after self-modifying code or dynamic
     ///   code generation before the new instructions are executed.
     FenceI,
+
+    // =========================================================
+    // RV32M extension
+    // =========================================================
+    /// Integer multiply (low word).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] * x[rs2])[31:0]`
+    ///
+    /// # Effects
+    /// - Multiplies `x[rs1]` and `x[rs2]` as 32-bit integers.
+    /// - Writes the least-significant 32 bits of the 64-bit product to `rd`.
+    ///
+    /// # Notes
+    /// - Equivalent low-word result for signed and unsigned operands.
+    /// - Upper 32 bits are discarded.
+    Mul { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer multiply high (signed × signed).
+    ///
+    /// # Semantics
+    /// `x[rd] = ((x[rs1] as i32 * x[rs2] as i32) >> 32)`
+    ///
+    /// # Effects
+    /// - Multiplies both operands as signed 32-bit integers.
+    /// - Writes the most-significant 32 bits of the 64-bit product to `rd`.
+    Mulh { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer multiply high (signed × unsigned).
+    ///
+    /// # Semantics
+    /// `x[rd] = ((x[rs1] as i32 * x[rs2]) >> 32)`
+    ///
+    /// # Effects
+    /// - Multiplies `x[rs1]` as signed and `x[rs2]` as unsigned.
+    /// - Writes the most-significant 32 bits of the 64-bit product to `rd`.
+    Mulhsu { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer multiply high (unsigned × unsigned).
+    ///
+    /// # Semantics
+    /// `x[rd] = ((x[rs1] * x[rs2]) >> 32)`
+    ///
+    /// # Effects
+    /// - Multiplies both operands as unsigned 32-bit integers.
+    /// - Writes the most-significant 32 bits of the 64-bit product to `rd`.
+    Mulhu { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer division (signed).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] as i32) / (x[rs2] as i32)`
+    ///
+    /// # Effects
+    /// - Divides `x[rs1]` by `x[rs2]` using signed division.
+    /// - Quotient is truncated toward zero.
+    /// - Writes the result to `rd`.
+    ///
+    /// # Special cases
+    /// - If `x[rs2] == 0`, writes `0xFFFF_FFFF`.
+    /// - If `x[rs1] == INT32_MIN` and `x[rs2] == -1`, writes `INT32_MIN`.
+    Div { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer division (unsigned).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] / x[rs2]`
+    ///
+    /// # Effects
+    /// - Divides operands as unsigned 32-bit integers.
+    /// - Writes the quotient to `rd`.
+    ///
+    /// # Special cases
+    /// - If `x[rs2] == 0`, writes `0xFFFF_FFFF`.
+    Divu { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer remainder (signed).
+    ///
+    /// # Semantics
+    /// `x[rd] = (x[rs1] as i32) % (x[rs2] as i32)`
+    ///
+    /// # Effects
+    /// - Computes the signed remainder of `x[rs1] / x[rs2]`.
+    /// - Writes the result to `rd`.
+    ///
+    /// # Special cases
+    /// - If `x[rs2] == 0`, writes `x[rs1]`.
+    /// - If `x[rs1] == INT32_MIN` and `x[rs2] == -1`, writes `0`.
+    Rem { rd: u8, rs1: u8, rs2: u8 },
+
+    /// Integer remainder (unsigned).
+    ///
+    /// # Semantics
+    /// `x[rd] = x[rs1] % x[rs2]`
+    ///
+    /// # Effects
+    /// - Computes the unsigned remainder of `x[rs1] / x[rs2]`.
+    /// - Writes the result to `rd`.
+    ///
+    /// # Special cases
+    /// - If `x[rs2] == 0`, writes `x[rs1]`.
+    Remu { rd: u8, rs1: u8, rs2: u8 },
 }
 
 impl Instruction {
@@ -686,6 +788,18 @@ impl Instruction {
             Sra { rd, rs1, rs2 } => r(f, "sra", rd, rs1, rs2),
             Or { rd, rs1, rs2 } => r(f, "or", rd, rs1, rs2),
             And { rd, rs1, rs2 } => r(f, "and", rd, rs1, rs2),
+
+            // =========================
+            // RV32M
+            // =========================
+            Mul { rd, rs1, rs2 } => r(f, "mul", rd, rs1, rs2),
+            Mulh { rd, rs1, rs2 } => r(f, "mulh", rd, rs1, rs2),
+            Mulhsu { rd, rs1, rs2 } => r(f, "mulhsu", rd, rs1, rs2),
+            Mulhu { rd, rs1, rs2 } => r(f, "mulhu", rd, rs1, rs2),
+            Div { rd, rs1, rs2 } => r(f, "div", rd, rs1, rs2),
+            Divu { rd, rs1, rs2 } => r(f, "divu", rd, rs1, rs2),
+            Rem { rd, rs1, rs2 } => r(f, "rem", rd, rs1, rs2),
+            Remu { rd, rs1, rs2 } => r(f, "remu", rd, rs1, rs2),
 
             // =========================
             // I-type ALU
