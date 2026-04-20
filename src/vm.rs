@@ -127,7 +127,7 @@ pub enum VMError {
     PCOverflow,
 }
 
-/// A simple RV32I virtual machine.
+/// A simple RV32IM virtual machine.
 ///
 /// This struct represents the lowest-level abstraction of the emulator,
 /// providing memory, registers, and basic I/O primitives.

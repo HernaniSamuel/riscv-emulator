@@ -1,6 +1,6 @@
-//! RV32I instruction decoder.
+//! RV32IM instruction decoder.
 //!
-//! This module implements the **decode stage** of a minimal RISC-V RV32I CPU.
+//! This module implements the **decode stage** of a minimal RISC-V RV32IM CPU.
 //!
 //! It translates 32-bit raw instruction words (fetched from memory) into a
 //! strongly-typed [`Instruction`] enum, which represents the **fully decoded
@@ -17,18 +17,19 @@
 //!
 //! - **Pure decoding**: no mutation of CPU state, memory, or registers
 //! - **No speculation**: invalid encodings are rejected immediately
-//! - **RV32I only**: no support for M/A/F/C extensions
 //! - **Aligned instructions only**: assumes 32-bit instruction words
 //!
 //! # Encoding coverage
 //!
-//! Supports the full RV32I base ISA:
-//! - R-type: arithmetic and logical register-register operations
+//! Supports the full RV32IM ISA:
+//! - R-type: arithmetic, logical, shift, and multiply/divide register-register operations
 //! - I-type: immediate ALU operations, loads, and JALR
 //! - S-type: stores
 //! - B-type: conditional branches
 //! - U-type: LUI and AUIPC
 //! - J-type: JAL
+//!
+//! - M extension: MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
 //! - System: ECALL, EBREAK
 //! - FENCE / FENCE.I
 //!
@@ -60,7 +61,7 @@ use crate::cpu::{CPU, CPUError};
 impl CPU {
     /// Decodes a raw 32-bit RISC-V instruction into a structured [`Instruction`] enum.
     ///
-    /// This function implements the RV32I base integer instruction decoding logic.
+    /// This function implements the RV32IM base integer instruction decoding logic.
     /// It extracts opcode, funct3, funct7, register indices, and immediates,
     /// then maps them into the corresponding [`Instruction`] variant.
     ///

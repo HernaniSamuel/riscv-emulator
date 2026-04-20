@@ -1,6 +1,6 @@
 //! RISC-V Emulator binary entrypoint.
 //!
-//! This is the main executable for the RV32I emulator.
+//! This is the main executable for the RV32IM emulator.
 //! It wires together CLI parsing, ELF loading, CPU initialization,
 //! and execution or disassembly modes.
 //!

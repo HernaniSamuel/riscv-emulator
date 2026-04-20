@@ -9,7 +9,7 @@ typedef unsigned short u16;
 typedef signed short   i16;
 
 u32 mix(u32 x) {
-    // força jal/jalr + stack
+    // forces jal/jalr + stack
     return (x << 3) ^ (x >> 2) ^ 0xA5A5A5A5;
 }
 
@@ -97,7 +97,7 @@ void _start() {
 // run it using the following commands (on the root of the project)
 // On windows it needs WSL, I don't know how to run it on linux but it appears to be even easier than in windows...
 
-// generate ELF `wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/guardrail.c -o tests/guardrail.elf`
-// run the emulator with the generated ELF `cargo run tests/guardrail.elf`
-// disassemble to compare `wsl riscv64-unknown-elf-objdump -d tests/guardrail.elf`
-// generate assembly `wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -S tests/guardrail.c`
+// generate ELF:
+// wsl riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/guardrail.c -o tests/guardrail.elf
+// run:
+// cargo run tests/guardrail.elf

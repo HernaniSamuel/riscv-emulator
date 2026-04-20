@@ -1,6 +1,6 @@
 # riscv-emulator
 
-A RISC-V RV32I emulator written in Rust. Loads and executes ELF32 binaries through a clean, layered architecture with a focus on correctness, determinism, and systems-level design.
+A RISC-V Rv32IM emulator written in Rust. Loads and executes ELF32 binaries through a clean, layered architecture with a focus on correctness, determinism, and systems-level design.
 
 Full API documentation: https://hernanisamuel.github.io/riscv-emulator/riscv/index.html
 
@@ -18,7 +18,7 @@ RiscV (system orchestration)
 
 **VM layer** — models low-level hardware behavior: RAM, register file, memory-mapped I/O, and peripheral devices (UART). All hardware concerns are isolated here.
 
-**CPU layer** — implements the RV32I execution model: instruction decoding, arithmetic and logical operations, branching, memory access (load/store), system calls (ECALL), and exception handling. Responsible for ISA correctness, not hardware simulation.
+**CPU layer** — implements the Rv32IM execution model: instruction decoding, arithmetic and logical operations, branching, memory access (load/store), system calls (ECALL), and exception handling. Responsible for ISA correctness, not hardware simulation.
 
 **RiscV layer** — top-level system orchestrator: initializes the CPU from a parsed ELF image and delegates execution to the selected mode (run or disassembly).
 
@@ -26,7 +26,7 @@ RiscV (system orchestration)
 
 ## Features
 
-- Complete RV32I base integer instruction set
+- Complete Rv32IM base integer instruction set
 - ELF32 binary loader and parser
 - Instruction-level execution engine
 - Static disassembly mode
@@ -69,7 +69,7 @@ cargo run -- <file.elf> --disasm
 - **Deterministic execution**: given the same binary and memory configuration, execution is fully reproducible. No hidden state, no implicit side effects.
 - **Explicit error handling**: errors are typed and propagated across layer boundaries. No panics in normal execution paths.
 - **No implicit side effects in instruction execution**: each instruction variant in the IR documents and produces only the effects it declares. The execution stage assumes well-formed inputs.
-- **Tests as specifications**: the test suite encodes RV32I compliance, CPU invariants (x0 hardwiring, PC behavior, sign extension), memory safety guarantees, and edge cases. Tests are the authoritative behavioral specification.
+- **Tests as specifications**: the test suite encodes Rv32IM compliance, CPU invariants (x0 hardwiring, PC behavior, sign extension), memory safety guarantees, and edge cases. Tests are the authoritative behavioral specification.
 
 ---
 
@@ -85,7 +85,7 @@ The test suite is designed as an executable specification of the emulator’s be
 
 It validates correctness at multiple layers of abstraction:
 
-- **ISA-level correctness (RV32I semantics)**
+- **ISA-level correctness (Rv32IM semantics)**
   Instruction decoding and execution are validated against expected architectural behavior, including arithmetic, logical, memory, and control-flow operations.
 
 - **Architectural invariants**

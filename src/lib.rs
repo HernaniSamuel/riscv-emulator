@@ -1,9 +1,9 @@
-//! # RISC-V Emulator (RV32I+)
+//! # RISC-V Emulator for RV32IM_Zifencei
 //!
 //! A lightweight RISC-V virtual machine designed for embedded systems,
 //! educational use, and runtime experimentation.
 //!
-//! It implements a complete execution pipeline for RV32I binaries,
+//! It implements a complete execution pipeline for RV32IM binaries,
 //! from ELF loading to instruction execution.
 //!
 //! ---
@@ -18,11 +18,27 @@
 //!       └── VM (memory + hardware abstraction)
 //! ```
 //!
+//! Core components:
+//!
+//! - [`crate::vm::VM`] — raw memory model and hardware primitives
+//! - [`crate::cpu::CPU`] — instruction decode and execution engine
+//! - [`crate::risc_v::RiscV`] — top-level runtime, orchestration, and ELF loading
+//!
 //! Each layer has a clear responsibility:
 //!
-//! - **VM layer** — raw memory and hardware primitives
-//! - **CPU layer** — instruction decode + execution logic (RV32I)
-//! - **RISC-V layer** — system orchestration and ELF loading
+//! - **VM layer** — raw memory and device-facing primitives
+//! - **CPU layer** — instruction decode + execution logic (RV32IM)
+//! - **RISC-V layer** — system orchestration, loading, and runtime control
+//!
+//! ---
+//!
+//! ## Navigation Guide
+//!
+//! If you are exploring the crate for the first time:
+//!
+//! - Start with [`crate::risc_v`] for the public runtime API
+//! - Read [`crate::cpu`] for fetch/decode/execute internals
+//! - Inspect [`crate::vm`] for memory behavior and low-level state
 //!
 //! ---
 //!
@@ -45,9 +61,9 @@
 //!
 //! Errors are propagated through a layered hierarchy:
 //!
-//! - [`vm::VMError`] — memory and hardware faults
-//! - [`cpu::CPUError`] — instruction and execution errors
-//! - [`risc_v::RiscVError`] — system-level and loader errors
+//! - [`crate::vm::VMError`] — memory and hardware faults
+//! - [`crate::cpu::CPUError`] — instruction and execution faults
+//! - [`crate::risc_v::RiscVError`] — loader and system-level faults
 //!
 //! Each layer wraps the one below it, preserving full context across the pipeline.
 //!
@@ -55,7 +71,8 @@
 //!
 //! ## Features
 //!
-//! - RV32I base integer instruction set
+//! - RV32IM base integer instruction set with standard multiply/divide extension
+//! - Zifencei instruction support
 //! - ELF32 loader (little-endian only)
 //! - Loadable segment mapping (PT_LOAD)
 //! - Full instruction decode/execute pipeline
@@ -84,7 +101,7 @@
 //! ### Load and inspect program without execution
 //!
 //! ```no_run
-//! use riscv::{read_elf};
+//! use riscv::read_elf;
 //! use std::fs;
 //!
 //! let bytes = fs::read("program.elf").unwrap();

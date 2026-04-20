@@ -1,6 +1,6 @@
 //! # CPU
 //!
-//! This module implements the RV32I CPU layer of the emulator.
+//! This module implements the RV32IM CPU layer of the emulator.
 //!
 //! It is responsible for instruction semantics and execution flow,
 //! orchestrating the underlying hardware abstraction provided by
@@ -8,7 +8,7 @@
 //!
 //! ## Responsibilities
 //!
-//! - Implement the RV32I instruction set
+//! - Implement the RV32IM instruction set
 //! - Control execution flow (fetch–decode–execute)
 //! - Enforce ISA-level constraints (alignment, control flow, syscalls)
 //! - Provide a higher-level interface over the [`crate::vm::VM`]
@@ -136,7 +136,7 @@ pub enum CPUError {
     /// The original [`crate::vm::VMError`] is preserved for precise diagnostics.
     VM(VMError),
 
-    /// The fetched instruction opcode is not defined in the RV32I ISA.
+    /// The fetched instruction opcode is not defined in the RV32IM ISA.
     ///
     /// This error occurs during the **decode stage**, when the raw 32-bit
     /// instruction word cannot be mapped to a valid [`instruction::Instruction`].
@@ -191,7 +191,7 @@ impl From<VMError> for CPUError {
     }
 }
 
-/// A single-core RV32I CPU.
+/// A single-core RV32IM CPU.
 ///
 /// The CPU implements the instruction execution layer of the emulator,
 /// providing fetch–decode–execute semantics on top of a [`crate::vm::VM`].
@@ -203,7 +203,7 @@ impl From<VMError> for CPUError {
 ///
 /// # Responsibilities
 ///
-/// - Execute RV32I instructions
+/// - Execute RV32IM instructions
 /// - Control program flow (PC updates, branching, halting)
 /// - Enforce ISA-level constraints (alignment, valid opcodes)
 /// - Translate [`crate::vm::VMError`] into [`CPUError`]
@@ -369,7 +369,7 @@ impl CPU {
     /// This corresponds to the *fetch* stage of the classic
     /// fetch–decode–execute pipeline.
     ///
-    /// The method enforces the RV32I alignment requirement before accessing
+    /// The method enforces the RV32IM alignment requirement before accessing
     /// memory: instruction addresses must be 4-byte aligned. If the PC is not
     /// properly aligned, an error is returned immediately and no memory access
     /// is performed.
@@ -419,7 +419,7 @@ impl CPU {
     /// Sets the program counter (PC) to `value`.
     ///
     /// The PC determines the address of the next instruction to be fetched.
-    /// This method enforces the RV32I requirement that all instruction
+    /// This method enforces the RV32IM requirement that all instruction
     /// addresses must be 4-byte aligned.
     ///
     /// If `value` is not properly aligned, the error is returned immediately
@@ -448,7 +448,7 @@ impl CPU {
         Ok(())
     }
 
-    /// Advances the program counter (PC) by 4 bytes (one RV32I instruction).
+    /// Advances the program counter (PC) by 4 bytes (one RV32IM instruction).
     ///
     /// This corresponds to moving to the next sequential instruction in the
     /// absence of control flow changes (e.g. branches or jumps).
@@ -569,7 +569,7 @@ impl CPU {
     /// This method provides CPU-level access to memory, delegating the
     /// operation to the underlying [`crate::vm::VM`].
     ///
-    /// It is typically used by RV32I load instructions such as `LH` and `LHU`.
+    /// It is typically used by RV32IM load instructions such as `LH` and `LHU`.
     ///
     /// # Errors
     ///
@@ -590,7 +590,7 @@ impl CPU {
     /// This method provides CPU-level access to memory, delegating the
     /// operation to the underlying [`crate::vm::VM`].
     ///
-    /// It is typically used by RV32I store instructions such as `SH`.
+    /// It is typically used by RV32IM store instructions such as `SH`.
     ///
     /// # Errors
     ///
@@ -610,7 +610,7 @@ impl CPU {
     /// This method provides CPU-level access to memory, delegating the
     /// operation to the underlying [`crate::vm::VM`].
     ///
-    /// It is typically used by RV32I load instructions such as `LW`.
+    /// It is typically used by RV32IM load instructions such as `LW`.
     ///
     /// # Errors
     ///
@@ -630,7 +630,7 @@ impl CPU {
     /// This method provides CPU-level access to memory, delegating the
     /// operation to the underlying [`crate::vm::VM`].
     ///
-    /// It is typically used by RV32I store instructions such as `SW`.
+    /// It is typically used by RV32IM store instructions such as `SW`.
     ///
     /// # Errors
     ///

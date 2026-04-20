@@ -1,7 +1,7 @@
-//! RV32I instruction decoding and intermediate representation.
+//! RV32IM instruction decoding and intermediate representation.
 //!
 //! This module defines the [`Instruction`] enum, a canonical, fully-decoded
-//! representation of a RISC-V RV32I instruction.
+//! representation of a RISC-V RV32IM instruction.
 //!
 //! # Overview
 //!
@@ -20,7 +20,7 @@
 //! - Register indices (`rd`, `rs1`, `rs2`) are always in the range `0..32`
 //! - Immediates are fully reconstructed and sign-extended to `i32`
 //! - Shift amounts are masked to 5 bits (`0..31`)
-//! - Instruction variants map 1:1 to RV32I operations
+//! - Instruction variants map 1:1 to RV32IM operations
 //!
 //! As a result, the execution stage does not need to perform any additional
 //! decoding, masking, or sign-extension.
@@ -38,7 +38,7 @@
 
 use std::fmt;
 
-/// A decoded RV32I instruction.
+/// A decoded RV32IM instruction.
 ///
 /// This enum represents the result of the decode stage for the
 /// RISC-V Unprivileged ISA (RV32I). Each variant corresponds to a
@@ -80,7 +80,7 @@ use std::fmt;
 ///
 /// # Coverage
 ///
-/// This enum covers the complete RV32I base ISA, including:
+/// This enum covers the complete RV32IM base ISA, including:
 /// - Integer arithmetic and logical instructions
 /// - Control flow (branches and jumps)
 /// - Memory access (loads and stores)

@@ -52,7 +52,7 @@ use clap::Parser;
 /// This struct does not contain any execution logic.
 #[derive(Parser, Debug)]
 #[command(name = "riscv")]
-#[command(about = "RV32I emulator")]
+#[command(about = "RV32IM emulator")]
 pub struct Args {
     /// Input ELF file (optional positional argument)
     pub file: Option<String>,

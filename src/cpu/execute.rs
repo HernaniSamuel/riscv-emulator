@@ -1,4 +1,4 @@
-//! RISC-V RV32I instruction execution engine.
+//! RISC-V RV32IM instruction execution engine.
 //!
 //! This module implements the **execution stage** of a simplified RISC-V CPU pipeline.
 //! It is responsible for applying the semantic effects of a decoded
@@ -27,7 +27,7 @@
 //! # Design principles
 //!
 //! - **Single instruction effect model**: each call executes exactly one instruction.
-//! - **Wrapping arithmetic**: all integer operations follow RV32I wrapping semantics.
+//! - **Wrapping arithmetic**: all integer operations follow RV32IM wrapping semantics.
 //! - **Strict register semantics**: `x0` is always hardwired to zero.
 //! - **Separation of concerns**: execution does not perform decoding or fetching.
 //!
@@ -53,7 +53,7 @@
 //!
 //! # Compliance
 //!
-//! This implementation targets the **RV32I base integer ISA only**.
+//! This implementation targets the **RV32IM base integer ISA only**.
 //! Extensions such as RV32M, RV32A, and compressed ISA (C) are not implemented.
 //!
 //! # Error handling
@@ -78,7 +78,7 @@ use crate::cpu::instruction::Instruction::*;
 use crate::cpu::{CPU, CPUError};
 
 impl CPU {
-    /// Executes a single RV32I instruction on the CPU.
+    /// Executes a single RV32IM instruction on the CPU.
     ///
     /// This function implements the execution stage of the RISC-V pipeline.
     /// It takes a decoded [`Instruction`] and applies its semantics to the CPU state,
@@ -147,7 +147,7 @@ impl CPU {
     ///
     /// # RISC-V Compliance
     ///
-    /// Implements RV32I base integer ISA (no M/A/F/D extensions).
+    /// Implements RV32IM base integer ISA.
     /// Compliant behavior includes:
     ///
     /// - Proper sign extension for loads
@@ -427,7 +427,7 @@ impl CPU {
                 let a = self.get_x(rs1 as usize)?;
                 let b = self.get_x(rs2 as usize)?;
 
-                let val = if b == 0 { u32::MAX } else { a / b };
+                let val = a.checked_div(b).unwrap_or(u32::MAX);
 
                 self.set_x(rd as usize, val)?;
             }

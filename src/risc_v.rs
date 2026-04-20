@@ -100,7 +100,6 @@
 //!
 //! This loader targets a minimal RISC-V execution environment:
 //!
-//! - RV32I binaries only
 //! - Static ELF executables
 //! - No runtime linking or dynamic loader support
 //!
@@ -118,7 +117,7 @@ use crate::cpu::{CPU, CPUError};
 /// The loader is strict and fails fast: any malformed or incompatible ELF file
 /// results in an error rather than undefined behavior or partial execution.
 ///
-/// This ensures the VM only runs validated RISC-V RV32I binaries.
+/// This ensures the VM only runs validated RISC-V RV32IM binaries.
 ///
 /// # Variants
 ///
@@ -490,7 +489,7 @@ pub struct ElfImage {
 /// * Only `PT_LOAD` segments are loaded into memory.
 /// * Other segment types (dynamic, notes, TLS, etc.) are ignored.
 /// * This loader does not perform relocation or linking.
-/// * The resulting [`ElfImage`] is architecture-neutral within RV32I constraints.
+/// * The resulting [`ElfImage`] is architecture-neutral within RV32IM constraints.
 ///
 /// # Design Role
 ///
@@ -592,7 +591,7 @@ pub fn read_elf(data: &[u8]) -> Result<ElfImage, RiscVError> {
 /// Top-level RISC-V virtual machine runtime.
 ///
 /// This struct represents the complete execution environment for a
-/// RISC-V RV32I program.
+/// RISC-V RV32IM program.
 ///
 /// It wraps the underlying [`CPU`] and provides a simplified entry
 /// point for initializing and running ELF binaries.

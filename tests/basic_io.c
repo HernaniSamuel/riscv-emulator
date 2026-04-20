@@ -69,7 +69,7 @@ int main() {
     RVputs("!\n");
 
     // TX: confirm integer printing still works
-    RVprintf("2 + 2 = %d\n", 2 + 2);
+    RVprintf("%d\n", (13 * 7) + (100 / 4) - (23 % 5));
 
     return 0;
 }
@@ -86,6 +86,6 @@ void _start() {
 }
 
 // generate ELF:
-// wsl riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/basic_io.c -lgcc -o tests/basic_io.elf
+// wsl riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/basic_io.c -lgcc -o tests/basic_io.elf
 // run:
 // cargo run tests/basic_io.elf
