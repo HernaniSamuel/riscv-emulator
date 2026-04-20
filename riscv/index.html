@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="RISC-V Emulator (RV32I+)"><title>riscv - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate riscv</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#risc-v-emulator-rv32i" title="RISC-V Emulator (RV32I+)">RISC-V Emulator (RV32I+)</a><ul><li><a href="#architecture-overview" title="Architecture Overview">Architecture Overview</a></li><li><a href="#execution-pipeline" title="Execution Pipeline">Execution Pipeline</a></li><li><a href="#error-model" title="Error Model">Error Model</a></li><li><a href="#features" title="Features">Features</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#design-philosophy" title="Design Philosophy">Design Philosophy</a></li><li><a href="#target-use-cases" title="Target Use Cases">Target Use Cases</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>riscv</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/riscv/lib.rs.html#1-124">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="risc-v-emulator-rv32i"><a class="doc-anchor" href="#risc-v-emulator-rv32i">§</a>RISC-V Emulator (RV32I+)</h2>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="RISC-V Emulator for RV32IM_Zifencei"><title>riscv - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate riscv</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../riscv/index.html">riscv</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#risc-v-emulator-for-rv32im_zifencei" title="RISC-V Emulator for RV32IM_Zifencei">RISC-V Emulator for RV32IM_Zifencei</a><ul><li><a href="#architecture-overview" title="Architecture Overview">Architecture Overview</a></li><li><a href="#navigation-guide" title="Navigation Guide">Navigation Guide</a></li><li><a href="#execution-pipeline" title="Execution Pipeline">Execution Pipeline</a></li><li><a href="#error-model" title="Error Model">Error Model</a></li><li><a href="#features" title="Features">Features</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#design-philosophy" title="Design Philosophy">Design Philosophy</a></li><li><a href="#target-use-cases" title="Target Use Cases">Target Use Cases</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>riscv</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/riscv/lib.rs.html#1-141">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="risc-v-emulator-for-rv32im_zifencei"><a class="doc-anchor" href="#risc-v-emulator-for-rv32im_zifencei">§</a>RISC-V Emulator for RV32IM_Zifencei</h2>
 <p>A lightweight RISC-V virtual machine designed for embedded systems,
 educational use, and runtime experimentation.</p>
-<p>It implements a complete execution pipeline for RV32I binaries,
+<p>It implements a complete execution pipeline for RV32IM binaries,
 from ELF loading to instruction execution.</p>
 <hr />
 <h3 id="architecture-overview"><a class="doc-anchor" href="#architecture-overview">§</a>Architecture Overview</h3>
@@ -9,11 +9,25 @@ from ELF loading to instruction execution.</p>
 <div class="example-wrap"><pre class="language-text"><code>RiscV (runtime / system layer)
  └── CPU (execution engine)
       └── VM (memory + hardware abstraction)</code></pre></div>
+<p>Core components:</p>
+<ul>
+<li><a href="vm/struct.VM.html" title="struct riscv::vm::VM"><code>crate::vm::VM</code></a> — raw memory model and hardware primitives</li>
+<li><a href="cpu/struct.CPU.html" title="struct riscv::cpu::CPU"><code>crate::cpu::CPU</code></a> — instruction decode and execution engine</li>
+<li><a href="risc_v/struct.RiscV.html" title="struct riscv::risc_v::RiscV"><code>crate::risc_v::RiscV</code></a> — top-level runtime, orchestration, and ELF loading</li>
+</ul>
 <p>Each layer has a clear responsibility:</p>
 <ul>
-<li><strong>VM layer</strong> — raw memory and hardware primitives</li>
-<li><strong>CPU layer</strong> — instruction decode + execution logic (RV32I)</li>
-<li><strong>RISC-V layer</strong> — system orchestration and ELF loading</li>
+<li><strong>VM layer</strong> — raw memory and device-facing primitives</li>
+<li><strong>CPU layer</strong> — instruction decode + execution logic (RV32IM)</li>
+<li><strong>RISC-V layer</strong> — system orchestration, loading, and runtime control</li>
+</ul>
+<hr />
+<h3 id="navigation-guide"><a class="doc-anchor" href="#navigation-guide">§</a>Navigation Guide</h3>
+<p>If you are exploring the crate for the first time:</p>
+<ul>
+<li>Start with <a href="risc_v/index.html" title="mod riscv::risc_v"><code>crate::risc_v</code></a> for the public runtime API</li>
+<li>Read <a href="cpu/index.html" title="mod riscv::cpu"><code>crate::cpu</code></a> for fetch/decode/execute internals</li>
+<li>Inspect <a href="vm/index.html" title="mod riscv::vm"><code>crate::vm</code></a> for memory behavior and low-level state</li>
 </ul>
 <hr />
 <h3 id="execution-pipeline"><a class="doc-anchor" href="#execution-pipeline">§</a>Execution Pipeline</h3>
@@ -28,15 +42,16 @@ from ELF loading to instruction execution.</p>
 <h3 id="error-model"><a class="doc-anchor" href="#error-model">§</a>Error Model</h3>
 <p>Errors are propagated through a layered hierarchy:</p>
 <ul>
-<li><a href="vm/enum.VMError.html" title="enum riscv::vm::VMError"><code>vm::VMError</code></a> — memory and hardware faults</li>
-<li><a href="cpu/enum.CPUError.html" title="enum riscv::cpu::CPUError"><code>cpu::CPUError</code></a> — instruction and execution errors</li>
-<li><a href="risc_v/enum.RiscVError.html" title="enum riscv::risc_v::RiscVError"><code>risc_v::RiscVError</code></a> — system-level and loader errors</li>
+<li><a href="vm/enum.VMError.html" title="enum riscv::vm::VMError"><code>crate::vm::VMError</code></a> — memory and hardware faults</li>
+<li><a href="cpu/enum.CPUError.html" title="enum riscv::cpu::CPUError"><code>crate::cpu::CPUError</code></a> — instruction and execution faults</li>
+<li><a href="risc_v/enum.RiscVError.html" title="enum riscv::risc_v::RiscVError"><code>crate::risc_v::RiscVError</code></a> — loader and system-level faults</li>
 </ul>
 <p>Each layer wraps the one below it, preserving full context across the pipeline.</p>
 <hr />
 <h3 id="features"><a class="doc-anchor" href="#features">§</a>Features</h3>
 <ul>
-<li>RV32I base integer instruction set</li>
+<li>RV32IM base integer instruction set with standard multiply/divide extension</li>
+<li>Zifencei instruction support</li>
 <li>ELF32 loader (little-endian only)</li>
 <li>Loadable segment mapping (PT_LOAD)</li>
 <li>Full instruction decode/execute pipeline</li>
@@ -55,7 +70,7 @@ from ELF loading to instruction execution.</p>
 vm.cpu.run().unwrap();</code></pre></div>
 <hr />
 <h4 id="load-and-inspect-program-without-execution"><a class="doc-anchor" href="#load-and-inspect-program-without-execution">§</a>Load and inspect program without execution</h4>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>riscv::{read_elf};
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>riscv::read_elf;
 <span class="kw">use </span>std::fs;
 
 <span class="kw">let </span>bytes = fs::read(<span class="string">"program.elf"</span>).unwrap();

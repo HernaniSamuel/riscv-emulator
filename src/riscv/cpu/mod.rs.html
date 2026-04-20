@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cpu/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="riscv" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">riscv/cpu/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # CPU
 <a href=#2 id=2 data-nosnippet>2</a>//!
-<a href=#3 id=3 data-nosnippet>3</a>//! This module implements the RV32I CPU layer of the emulator.
+<a href=#3 id=3 data-nosnippet>3</a>//! This module implements the RV32IM CPU layer of the emulator.
 <a href=#4 id=4 data-nosnippet>4</a>//!
 <a href=#5 id=5 data-nosnippet>5</a>//! It is responsible for instruction semantics and execution flow,
 <a href=#6 id=6 data-nosnippet>6</a>//! orchestrating the underlying hardware abstraction provided by
@@ -8,7 +8,7 @@
 <a href=#8 id=8 data-nosnippet>8</a>//!
 <a href=#9 id=9 data-nosnippet>9</a>//! ## Responsibilities
 <a href=#10 id=10 data-nosnippet>10</a>//!
-<a href=#11 id=11 data-nosnippet>11</a>//! - Implement the RV32I instruction set
+<a href=#11 id=11 data-nosnippet>11</a>//! - Implement the RV32IM instruction set
 <a href=#12 id=12 data-nosnippet>12</a>//! - Control execution flow (fetch–decode–execute)
 <a href=#13 id=13 data-nosnippet>13</a>//! - Enforce ISA-level constraints (alignment, control flow, syscalls)
 <a href=#14 id=14 data-nosnippet>14</a>//! - Provide a higher-level interface over the [`crate::vm::VM`]
@@ -136,7 +136,7 @@
 <a href=#136 id=136 data-nosnippet>136</a>    /// The original [`crate::vm::VMError`] is preserved for precise diagnostics.
 <a href=#137 id=137 data-nosnippet>137</a>    </span>VM(VMError),
 <a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="doccomment">/// The fetched instruction opcode is not defined in the RV32I ISA.
+<a href=#139 id=139 data-nosnippet>139</a>    <span class="doccomment">/// The fetched instruction opcode is not defined in the RV32IM ISA.
 <a href=#140 id=140 data-nosnippet>140</a>    ///
 <a href=#141 id=141 data-nosnippet>141</a>    /// This error occurs during the **decode stage**, when the raw 32-bit
 <a href=#142 id=142 data-nosnippet>142</a>    /// instruction word cannot be mapped to a valid [`instruction::Instruction`].
@@ -191,7 +191,7 @@
 <a href=#191 id=191 data-nosnippet>191</a>    }
 <a href=#192 id=192 data-nosnippet>192</a>}
 <a href=#193 id=193 data-nosnippet>193</a>
-<a href=#194 id=194 data-nosnippet>194</a><span class="doccomment">/// A single-core RV32I CPU.
+<a href=#194 id=194 data-nosnippet>194</a><span class="doccomment">/// A single-core RV32IM CPU.
 <a href=#195 id=195 data-nosnippet>195</a>///
 <a href=#196 id=196 data-nosnippet>196</a>/// The CPU implements the instruction execution layer of the emulator,
 <a href=#197 id=197 data-nosnippet>197</a>/// providing fetch–decode–execute semantics on top of a [`crate::vm::VM`].
@@ -203,7 +203,7 @@
 <a href=#203 id=203 data-nosnippet>203</a>///
 <a href=#204 id=204 data-nosnippet>204</a>/// # Responsibilities
 <a href=#205 id=205 data-nosnippet>205</a>///
-<a href=#206 id=206 data-nosnippet>206</a>/// - Execute RV32I instructions
+<a href=#206 id=206 data-nosnippet>206</a>/// - Execute RV32IM instructions
 <a href=#207 id=207 data-nosnippet>207</a>/// - Control program flow (PC updates, branching, halting)
 <a href=#208 id=208 data-nosnippet>208</a>/// - Enforce ISA-level constraints (alignment, valid opcodes)
 <a href=#209 id=209 data-nosnippet>209</a>/// - Translate [`crate::vm::VMError`] into [`CPUError`]
@@ -369,7 +369,7 @@
 <a href=#369 id=369 data-nosnippet>369</a>    /// This corresponds to the *fetch* stage of the classic
 <a href=#370 id=370 data-nosnippet>370</a>    /// fetch–decode–execute pipeline.
 <a href=#371 id=371 data-nosnippet>371</a>    ///
-<a href=#372 id=372 data-nosnippet>372</a>    /// The method enforces the RV32I alignment requirement before accessing
+<a href=#372 id=372 data-nosnippet>372</a>    /// The method enforces the RV32IM alignment requirement before accessing
 <a href=#373 id=373 data-nosnippet>373</a>    /// memory: instruction addresses must be 4-byte aligned. If the PC is not
 <a href=#374 id=374 data-nosnippet>374</a>    /// properly aligned, an error is returned immediately and no memory access
 <a href=#375 id=375 data-nosnippet>375</a>    /// is performed.
@@ -419,7 +419,7 @@
 <a href=#419 id=419 data-nosnippet>419</a>    <span class="doccomment">/// Sets the program counter (PC) to `value`.
 <a href=#420 id=420 data-nosnippet>420</a>    ///
 <a href=#421 id=421 data-nosnippet>421</a>    /// The PC determines the address of the next instruction to be fetched.
-<a href=#422 id=422 data-nosnippet>422</a>    /// This method enforces the RV32I requirement that all instruction
+<a href=#422 id=422 data-nosnippet>422</a>    /// This method enforces the RV32IM requirement that all instruction
 <a href=#423 id=423 data-nosnippet>423</a>    /// addresses must be 4-byte aligned.
 <a href=#424 id=424 data-nosnippet>424</a>    ///
 <a href=#425 id=425 data-nosnippet>425</a>    /// If `value` is not properly aligned, the error is returned immediately
@@ -448,7 +448,7 @@
 <a href=#448 id=448 data-nosnippet>448</a>        <span class="prelude-val">Ok</span>(())
 <a href=#449 id=449 data-nosnippet>449</a>    }
 <a href=#450 id=450 data-nosnippet>450</a>
-<a href=#451 id=451 data-nosnippet>451</a>    <span class="doccomment">/// Advances the program counter (PC) by 4 bytes (one RV32I instruction).
+<a href=#451 id=451 data-nosnippet>451</a>    <span class="doccomment">/// Advances the program counter (PC) by 4 bytes (one RV32IM instruction).
 <a href=#452 id=452 data-nosnippet>452</a>    ///
 <a href=#453 id=453 data-nosnippet>453</a>    /// This corresponds to moving to the next sequential instruction in the
 <a href=#454 id=454 data-nosnippet>454</a>    /// absence of control flow changes (e.g. branches or jumps).
@@ -569,7 +569,7 @@
 <a href=#569 id=569 data-nosnippet>569</a>    /// This method provides CPU-level access to memory, delegating the
 <a href=#570 id=570 data-nosnippet>570</a>    /// operation to the underlying [`crate::vm::VM`].
 <a href=#571 id=571 data-nosnippet>571</a>    ///
-<a href=#572 id=572 data-nosnippet>572</a>    /// It is typically used by RV32I load instructions such as `LH` and `LHU`.
+<a href=#572 id=572 data-nosnippet>572</a>    /// It is typically used by RV32IM load instructions such as `LH` and `LHU`.
 <a href=#573 id=573 data-nosnippet>573</a>    ///
 <a href=#574 id=574 data-nosnippet>574</a>    /// # Errors
 <a href=#575 id=575 data-nosnippet>575</a>    ///
@@ -590,7 +590,7 @@
 <a href=#590 id=590 data-nosnippet>590</a>    /// This method provides CPU-level access to memory, delegating the
 <a href=#591 id=591 data-nosnippet>591</a>    /// operation to the underlying [`crate::vm::VM`].
 <a href=#592 id=592 data-nosnippet>592</a>    ///
-<a href=#593 id=593 data-nosnippet>593</a>    /// It is typically used by RV32I store instructions such as `SH`.
+<a href=#593 id=593 data-nosnippet>593</a>    /// It is typically used by RV32IM store instructions such as `SH`.
 <a href=#594 id=594 data-nosnippet>594</a>    ///
 <a href=#595 id=595 data-nosnippet>595</a>    /// # Errors
 <a href=#596 id=596 data-nosnippet>596</a>    ///
@@ -610,7 +610,7 @@
 <a href=#610 id=610 data-nosnippet>610</a>    /// This method provides CPU-level access to memory, delegating the
 <a href=#611 id=611 data-nosnippet>611</a>    /// operation to the underlying [`crate::vm::VM`].
 <a href=#612 id=612 data-nosnippet>612</a>    ///
-<a href=#613 id=613 data-nosnippet>613</a>    /// It is typically used by RV32I load instructions such as `LW`.
+<a href=#613 id=613 data-nosnippet>613</a>    /// It is typically used by RV32IM load instructions such as `LW`.
 <a href=#614 id=614 data-nosnippet>614</a>    ///
 <a href=#615 id=615 data-nosnippet>615</a>    /// # Errors
 <a href=#616 id=616 data-nosnippet>616</a>    ///
@@ -630,7 +630,7 @@
 <a href=#630 id=630 data-nosnippet>630</a>    /// This method provides CPU-level access to memory, delegating the
 <a href=#631 id=631 data-nosnippet>631</a>    /// operation to the underlying [`crate::vm::VM`].
 <a href=#632 id=632 data-nosnippet>632</a>    ///
-<a href=#633 id=633 data-nosnippet>633</a>    /// It is typically used by RV32I store instructions such as `SW`.
+<a href=#633 id=633 data-nosnippet>633</a>    /// It is typically used by RV32IM store instructions such as `SW`.
 <a href=#634 id=634 data-nosnippet>634</a>    ///
 <a href=#635 id=635 data-nosnippet>635</a>    /// # Errors
 <a href=#636 id=636 data-nosnippet>636</a>    ///
