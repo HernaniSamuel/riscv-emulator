@@ -273,3 +273,22 @@ Here is the step-by-step that I'll make today to modify my emulator:
 | REMU        | unsigned remainder                              |
 
 Ok, decode done! 
+
+
+Day 23 - 21/04/2026
+I finished the M extension successfully, now It's time to add CSR and warantee that FreeRTOS have everything it needs to run in my emulator
+Apparently, I'll have to modify VM, decode, Instruction, execute and documentation
+Starting with the VM by adding new registers 
+Then, Instruction enum to understand the new CSR instructions
+Decode to make the emulator able to return the new instructions
+And finally the execute to... execute (;-;) our new instructions
+And then document everything and finally run FreeRTOS in the emulator!
+
+On VM:
+    1. modularize vm to isolate CSR logic in a csr.rs file
+    2. implement CSR on VM
+    3. implement CLINT MMIO in VM modifying read/write_u32 methods
+
+ok, VM is done! But I'll have to let CPU modifications for tomorrow, it's night already ;-;
+
+
