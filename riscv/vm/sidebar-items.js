@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["VMError"],"struct":["VM"]};
+window.SIDEBAR_ITEMS = {"enum":["VMError"],"mod":["clint","csr"],"struct":["VM"]};
