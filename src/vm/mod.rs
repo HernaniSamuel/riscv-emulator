@@ -121,9 +121,10 @@
 pub mod clint;
 pub mod csr;
 
+pub use clint::*;
+pub use csr::*;
+
 use crate::risc_v::ElfImage;
-use crate::vm::clint::*;
-use crate::vm::csr::Csrs;
 use std::io::Read;
 
 /// Base address for the UART MMIO region.
@@ -219,6 +220,7 @@ pub enum VMError {
 pub struct VM {
     ram: Vec<u8>,
     registers: [u32; 32],
+    ram_base: u32,
     pc: u32,
     csr: Csrs,
     clint: Clint,
@@ -278,17 +280,17 @@ impl VM {
             .checked_mul(1024)
             .ok_or(VMError::InvalidRamSize)?;
 
-        // Validate all segments before allocating anything.
+        // Detecta base address automaticamente
+        let ram_base = elf_file.segments.iter().map(|s| s.vaddr).min().unwrap_or(0);
+
         for seg in &elf_file.segments {
-            let seg_end = (seg.vaddr as usize)
+            let offset = (seg.vaddr - ram_base) as usize;
+            let seg_end = offset
                 .checked_add(seg.mem_size as usize)
                 .ok_or(VMError::ELFTooLarge)?;
-
             if seg_end > ram_size {
                 return Err(VMError::ELFTooLarge);
             }
-
-            // ELF guarantees file_size <= mem_size.
             if seg.data.len() > seg.mem_size as usize {
                 return Err(VMError::InvalidSegment);
             }
@@ -296,10 +298,8 @@ impl VM {
 
         let mut ram = vec![0u8; ram_size];
 
-        // Copy PT_LOAD contents into RAM.
-        // Remaining bytes (filesz..memsz) stay zeroed as BSS.
         for seg in &elf_file.segments {
-            let start = seg.vaddr as usize;
+            let start = (seg.vaddr - ram_base) as usize;
             let end = start + seg.data.len();
             ram[start..end].copy_from_slice(&seg.data);
         }
@@ -312,8 +312,23 @@ impl VM {
 
         let clint = Clint::default();
 
+        // temp debug
+        eprintln!("[DEBUG] ram_base = {:#010x}", ram_base);
+        eprintln!("[DEBUG] entry = {:#010x}", elf_file.entry);
+        eprintln!("[DEBUG] ram_size = {} bytes", ram_size);
+        for (i, seg) in elf_file.segments.iter().enumerate() {
+            eprintln!(
+                "[DEBUG] seg[{}] vaddr={:#010x} filesz={} memsz={}",
+                i,
+                seg.vaddr,
+                seg.data.len(),
+                seg.mem_size
+            );
+        }
+
         Ok(VM {
             ram,
+            ram_base,
             registers: [0u32; 32],
             pc: elf_file.entry,
             csr,
@@ -418,13 +433,17 @@ impl VM {
             return Ok(value);
         }
 
-        let a = addr as usize;
+        let offset = addr
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(addr))? as usize;
 
-        if a + 4 > self.ram.len() {
+        if offset + 4 > self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
         }
 
-        Ok(u32::from_le_bytes(self.ram[a..a + 4].try_into().unwrap()))
+        Ok(u32::from_le_bytes(
+            self.ram[offset..offset + 4].try_into().unwrap(),
+        ))
     }
 
     /// Writes a 32-bit little-endian value to memory or a memory-mapped device.
@@ -456,14 +475,15 @@ impl VM {
             return Ok(());
         }
 
-        let a = addr as usize;
+        let offset = addr
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(addr))? as usize;
 
-        if a + 4 > self.ram.len() {
+        if offset + 4 > self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
         }
 
-        self.ram[a..a + 4].copy_from_slice(&value.to_le_bytes());
-
+        self.ram[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
         Ok(())
     }
 
@@ -499,11 +519,14 @@ impl VM {
             _ => {}
         }
 
-        let a = addr as usize;
-        if a >= self.ram.len() {
+        let offset = addr
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(addr))? as usize;
+
+        if offset >= self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
         }
-        Ok(self.ram[a])
+        Ok(self.ram[offset])
     }
 
     /// Writes a byte to memory or a memory-mapped device.
@@ -532,11 +555,14 @@ impl VM {
             return Ok(());
         }
 
-        let a = addr as usize;
-        if a >= self.ram.len() {
+        let offset = addr
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(addr))? as usize;
+
+        if offset >= self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
         }
-        self.ram[a] = value;
+        self.ram[offset] = value;
         Ok(())
     }
 
@@ -555,11 +581,16 @@ impl VM {
     ///
     /// The VM state is not modified if an error occurs.
     pub fn read_u16(&self, addr: u32) -> Result<u16, VMError> {
-        let a = addr as usize;
-        if a + 2 > self.ram.len() {
+        let offset = addr
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(addr))? as usize;
+
+        if offset + 2 > self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
         }
-        Ok(u16::from_le_bytes(self.ram[a..a + 2].try_into().unwrap()))
+        Ok(u16::from_le_bytes(
+            self.ram[offset..offset + 2].try_into().unwrap(),
+        ))
     }
 
     /// Writes a 16-bit little-endian value to memory.
@@ -577,11 +608,14 @@ impl VM {
     ///
     /// Memory is not modified if an error occurs.
     pub fn write_u16(&mut self, addr: u32, value: u16) -> Result<(), VMError> {
-        let a = addr as usize;
-        if a + 2 > self.ram.len() {
+        let offset = addr
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(addr))? as usize;
+
+        if offset + 2 > self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(addr));
         }
-        self.ram[a..a + 2].copy_from_slice(&value.to_le_bytes());
+        self.ram[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
         Ok(())
     }
 
@@ -756,6 +790,7 @@ mod tests {
         VM {
             ram: vec![0; 1024],
             registers: [0; 32],
+            ram_base: 0,
             pc: 0,
             csr,
             clint: Clint::default(),

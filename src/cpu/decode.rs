@@ -339,12 +339,41 @@ impl CPU {
                 _ => return Err(CPUError::IllegalInstruction(instruction)),
             },
 
-            // ================= SYSTEM =================
+            // ================= SYSTEM / CSR =================
             0b1110011 => {
-                let sys = (instruction >> 20) & 0xfff;
-                match (funct3, sys) {
-                    (0x0, 0x000) => Instruction::Ecall,
-                    (0x0, 0x001) => Instruction::Ebreak,
+                let csr = ((instruction >> 20) & 0xfff) as u16;
+                let zimm = ((instruction >> 15) & 0x1f) as u8;
+
+                match funct3 {
+                    // ECALL / EBREAK
+                    0x0 => match csr {
+                        0x000 => Instruction::Ecall,
+                        0x001 => Instruction::Ebreak,
+
+                        // MRET (privileged return)
+                        0x302 => Instruction::Mret,
+
+                        _ => return Err(CPUError::IllegalInstruction(instruction)),
+                    },
+
+                    // CSR read/write register
+                    0x1 => Instruction::Csrrw { rd, rs1, csr },
+
+                    // CSR read/set
+                    0x2 => Instruction::Csrrs { rd, rs1, csr },
+
+                    // CSR read/clear
+                    0x3 => Instruction::Csrrc { rd, rs1, csr },
+
+                    // CSR immediate RW
+                    0x5 => Instruction::Csrrwi { rd, zimm, csr },
+
+                    // CSR immediate RS
+                    0x6 => Instruction::Csrrsi { rd, zimm, csr },
+
+                    // CSR immediate RC
+                    0x7 => Instruction::Csrrci { rd, zimm, csr },
+
                     _ => return Err(CPUError::IllegalInstruction(instruction)),
                 }
             }
@@ -1138,5 +1167,111 @@ mod tests {
                 rs2: 30
             }
         );
+    }
+
+    #[test]
+    fn decode_csrrw() {
+        let mut cpu = dummy_cpu();
+
+        let raw = (0b1110011)
+            | (1 << 7)          // rd
+            | (2 << 15)         // rs1
+            | (0x300 << 20)     // csr
+            | (0x1 << 12); // funct3 = CSRRW
+
+        assert_eq!(
+            cpu.decode(raw).unwrap(),
+            Instruction::Csrrw {
+                rd: 1,
+                rs1: 2,
+                csr: 0x300
+            }
+        );
+    }
+
+    #[test]
+    fn decode_csrrs() {
+        let mut cpu = dummy_cpu();
+
+        let raw = (0b1110011) | (3 << 7) | (4 << 15) | (0x344 << 20) | (0x2 << 12);
+
+        assert_eq!(
+            cpu.decode(raw).unwrap(),
+            Instruction::Csrrs {
+                rd: 3,
+                rs1: 4,
+                csr: 0x344
+            }
+        );
+    }
+
+    #[test]
+    fn decode_csrrwi() {
+        let mut cpu = dummy_cpu();
+
+        let raw = (0b1110011)
+            | (5 << 7)          // rd
+            | (7 << 15)         // zimm (NOT rs1)
+            | (0x300 << 20)
+            | (0x5 << 12); // CSRRWI
+
+        assert_eq!(
+            cpu.decode(raw).unwrap(),
+            Instruction::Csrrwi {
+                rd: 5,
+                zimm: 7,
+                csr: 0x300
+            }
+        );
+    }
+
+    #[test]
+    fn decode_csrrsi() {
+        let mut cpu = dummy_cpu();
+
+        let raw = (0b1110011) | (1 << 7) | (3 << 15) | (0x304 << 20) | (0x6 << 12);
+
+        assert_eq!(
+            cpu.decode(raw).unwrap(),
+            Instruction::Csrrsi {
+                rd: 1,
+                zimm: 3,
+                csr: 0x304
+            }
+        );
+    }
+
+    #[test]
+    fn decode_mret() {
+        let mut cpu = dummy_cpu();
+
+        let raw = (0x302 << 20) | 0b1110011;
+
+        assert_eq!(cpu.decode(raw).unwrap(), Instruction::Mret);
+    }
+
+    #[test]
+    fn decode_invalid_csr_funct3() {
+        let mut cpu = dummy_cpu();
+
+        let raw = (0b1110011) | (1 << 7) | (2 << 15) | (0x300 << 20); // ECALL context
+
+        // but with intentionally invalid CSR encoding
+        let corrupted = raw | (0x4 << 12);
+
+        assert!(cpu.decode(corrupted).is_err());
+    }
+
+    #[test]
+    fn csr_does_not_interfere_with_mret() {
+        let mut cpu = dummy_cpu();
+
+        let mret = (0x302 << 20) | 0b1110011;
+        let csrrw = (0x300 << 20) | (1 << 12) | 0b1110011;
+
+        let mret_decoded = cpu.decode(mret).unwrap();
+        let csr_decoded = cpu.decode(csrrw).unwrap();
+
+        assert_ne!(mret_decoded, csr_decoded);
     }
 }

@@ -304,6 +304,8 @@ impl CPU {
         let sp_init = vm.ram_size() as u32 & !0xF;
         vm.set_x(REG_SP, sp_init)?;
 
+        eprintln!("[DEBUG] sp_init = {:#010x}", sp_init);
+
         Ok(CPU {
             vm,
             running: false,
@@ -642,6 +644,43 @@ impl CPU {
     /// - The memory is modified only if the operation succeeds
     pub fn write_u32(&mut self, addr: u32, value: u32) -> Result<(), CPUError> {
         self.vm.write_u32(addr, value)?;
+        Ok(())
+    }
+
+    /// Reads a CSR through the VM abstraction layer.
+    ///
+    /// This function forwards the request to the underlying VM CSR unit,
+    /// propagating any errors without modification.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CPUError`] if the underlying VM CSR operation fails,
+    /// such as:
+    /// - invalid CSR address
+    /// - access to an unsupported or unimplemented CSR
+    /// - architectural CSR access violation
+    pub fn read_csr(&self, addr: u16) -> Result<u32, CPUError> {
+        Ok(self.vm.read_csr(addr)?)
+    }
+
+    /// Writes a CSR through the VM abstraction layer.
+    ///
+    /// This function forwards the write operation directly to the VM CSR unit,
+    /// propagating any errors without modification.
+    ///
+    /// CSR writes may affect privileged machine state such as:
+    /// - interrupt configuration (mie/mip)
+    /// - trap vector base address (mtvec)
+    /// - exception state (mepc, mcause)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CPUError`] if the underlying VM CSR write fails, for example:
+    /// - write to read-only CSR
+    /// - invalid CSR address
+    /// - architectural write restriction violation
+    pub fn write_csr(&mut self, addr: u16, value: u32) -> Result<(), CPUError> {
+        self.vm.write_csr(addr, value)?;
         Ok(())
     }
 

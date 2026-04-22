@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn elf_big_endian_returns_wrong_endian() {
         let mut data = build_elf(0x1000, 0x1000, &nop());
-        data[6] = 2; // EI_DATA = ELFDATA2MSB
+        data[5] = 2; // EI_DATA = ELFDATA2MSB
         let err = read_elf(&data).unwrap_err();
         assert!(matches!(err, RiscVError::WrongEndian));
     }

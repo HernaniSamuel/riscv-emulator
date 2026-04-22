@@ -594,7 +594,7 @@ pub enum Instruction {
     Jalr { rd: u8, rs1: u8, imm: i32 },
 
     // =========================================================
-    // System
+    // System / CSR
     // =========================================================
     /// Environment call.
     ///
@@ -630,6 +630,116 @@ pub enum Instruction {
     /// - Future implementations may pause execution and invoke a debugger
     ///   callback instead of silently continuing.
     Ebreak,
+
+    /// CSR Read/Write (register form).
+    ///
+    /// # Semantics
+    /// `t = CSR[csr]`  
+    /// `CSR[csr] = x[rs1]`  
+    /// `x[rd] = t`
+    ///
+    /// # Effects
+    /// - Reads the current CSR value
+    /// - Writes register `x[rs1]` into CSR
+    /// - Returns previous CSR value in `rd`
+    ///
+    /// # Notes
+    /// - If `rd == x0`, the result is discarded
+    /// - Operation is atomic at architectural level
+    Csrrw { rd: u8, rs1: u8, csr: u16 },
+
+    /// CSR Read and Set Bits (register form).
+    ///
+    /// # Semantics
+    /// `t = CSR[csr]`  
+    /// `CSR[csr] = t | x[rs1]`  
+    /// `x[rd] = t`
+    ///
+    /// # Effects
+    /// - Sets bits in CSR using `x[rs1]` as mask
+    /// - Returns previous CSR value in `rd`
+    ///
+    /// # Notes
+    /// - If `rs1 == x0`, CSR is only read (no modification)
+    Csrrs { rd: u8, rs1: u8, csr: u16 },
+
+    /// CSR Read and Clear Bits (register form).
+    ///
+    /// # Semantics
+    /// `t = CSR[csr]`  
+    /// `CSR[csr] = t & ~x[rs1]`  
+    /// `x[rd] = t`
+    ///
+    /// # Effects
+    /// - Clears bits in CSR using `x[rs1]` as mask
+    /// - Returns previous CSR value in `rd`
+    ///
+    /// # Notes
+    /// - If `rs1 == x0`, CSR is only read (no modification)
+    Csrrc { rd: u8, rs1: u8, csr: u16 },
+
+    /// CSR Read/Write Immediate.
+    ///
+    /// # Semantics
+    /// `t = CSR[csr]`  
+    /// `CSR[csr] = zimm`  
+    /// `x[rd] = t`
+    ///
+    /// # Effects
+    /// - Writes immediate value into CSR
+    /// - Returns previous CSR value in `rd`
+    ///
+    /// # Notes
+    /// - Immediate is zero-extended (5-bit)
+    Csrrwi { rd: u8, zimm: u8, csr: u16 },
+
+    /// CSR Read and Set Bits Immediate.
+    ///
+    /// # Semantics
+    /// `t = CSR[csr]`  
+    /// `CSR[csr] = t | zimm`  
+    /// `x[rd] = t`
+    ///
+    /// # Effects
+    /// - Sets bits in CSR using immediate mask
+    /// - Returns previous CSR value in `rd`
+    ///
+    /// # Notes
+    /// - If `zimm == 0`, CSR is only read
+    Csrrsi { rd: u8, zimm: u8, csr: u16 },
+
+    /// CSR Read and Clear Bits Immediate.
+    ///
+    /// # Semantics
+    /// `t = CSR[csr]`  
+    /// `CSR[csr] = t & ~zimm`  
+    /// `x[rd] = t`
+    ///
+    /// # Effects
+    /// - Clears bits in CSR using immediate mask
+    /// - Returns previous CSR value in `rd`
+    ///
+    /// # Notes
+    /// - If `zimm == 0`, CSR is only read
+    Csrrci { rd: u8, zimm: u8, csr: u16 },
+
+    /// Machine Return from Trap.
+    ///
+    /// # Semantics
+    /// `pc = mepc`
+    /// `mstatus.MIE = mstatus.MPIE`
+    /// `mstatus.MPIE = 1`
+    /// `mstatus.MPP = U-mode (0b00)`
+    ///
+    /// # Effects
+    /// - Restores program counter from exception return address
+    /// - Restores interrupt enable state
+    /// - Exits trap handler context
+    ///
+    /// # Notes
+    /// - This instruction is only valid in Machine Mode
+    /// - Critical for returning from interrupts (e.g. FreeRTOS tick handler)
+    Mret,
 
     // =========================================================
     // Memory ordering
@@ -854,10 +964,17 @@ impl Instruction {
             Jalr { rd, rs1, imm } => jalr(f, rd, rs1, imm),
 
             // =========================
-            // System
+            // System / CSR
             // =========================
             Ecall => f.write_str("ecall"),
             Ebreak => f.write_str("ebreak"),
+            Csrrs { rd, rs1, csr } => csr_r(f, "csrrs", rd, rs1, csr),
+            Csrrc { rd, rs1, csr } => csr_r(f, "csrrc", rd, rs1, csr),
+            Csrrw { rd, rs1, csr } => csr_r(f, "csrrw", rd, rs1, csr),
+            Csrrsi { rd, zimm, csr } => csr_i(f, "csrrsi", rd, zimm, csr),
+            Csrrci { rd, zimm, csr } => csr_i(f, "csrrci", rd, zimm, csr),
+            Csrrwi { rd, zimm, csr } => csr_i(f, "csrrwi", rd, zimm, csr),
+            Mret => write!(f, "mret"),
 
             // =========================
             // Fence
@@ -913,4 +1030,12 @@ fn u(f: &mut fmt::Formatter<'_>, op: &str, rd: u8, imm: i32) -> fmt::Result {
 #[inline(always)]
 fn jalr(f: &mut fmt::Formatter<'_>, rd: u8, rs1: u8, imm: i32) -> fmt::Result {
     write!(f, "jalr x{rd}, {imm}(x{rs1})")
+}
+
+fn csr_r(f: &mut fmt::Formatter<'_>, name: &str, rd: u8, rs1: u8, csr: u16) -> fmt::Result {
+    write!(f, "{} x{}, x{}, 0x{:x}", name, rd, rs1, csr)
+}
+
+fn csr_i(f: &mut fmt::Formatter<'_>, name: &str, rd: u8, zimm: u8, csr: u16) -> fmt::Result {
+    write!(f, "{} x{}, {}, 0x{:x}", name, rd, zimm, csr)
 }

@@ -89,7 +89,7 @@ jobs:
       - name: cargo doc
         run: cargo doc --no-deps
 
-      # Impede que o GitHub Pages tente processar a doc com Jekyll
+      # Prevents GitHub Pages from attempting to process the doc with Jekyll
       - name: Add .nojekyll
         run: touch target/doc/.nojekyll
 

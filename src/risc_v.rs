@@ -521,7 +521,7 @@ pub fn read_elf(data: &[u8]) -> Result<ElfImage, RiscVError> {
     // 3. Verify little-endian encoding (ELFDATA2LSB = 1)
     //    Original bug: incorrectly checked e_ident[5] again, duplicating the wrong field
     //    and failing to detect big-endian binaries
-    if header.e_ident[6] != 1 {
+    if header.e_ident[5] != 1 {
         return Err(RiscVError::WrongEndian);
     }
 

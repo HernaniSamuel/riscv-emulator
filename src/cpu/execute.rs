@@ -360,7 +360,7 @@ impl CPU {
                 self.set_pc(target)?;
             }
 
-            // ===================== System =====================
+            // ===================== System / CSR =====================
             Ecall => {
                 let syscall = self.get_x(17)?; // a7
                 match syscall {
@@ -375,6 +375,91 @@ impl CPU {
                 }
             }
             Ebreak => (), // TODO: implement ebreak handler
+
+            Csrrw { rd, rs1, csr } => {
+                let old = self.read_csr(csr)?;
+
+                let val = self.get_x(rs1 as usize)?;
+                self.write_csr(csr, val)?;
+
+                if rd != 0 {
+                    self.set_x(rd as usize, old)?;
+                }
+            }
+
+            Csrrs { rd, rs1, csr } => {
+                let old = self.read_csr(csr)?;
+
+                let val = self.get_x(rs1 as usize)?;
+                if val != 0 {
+                    let new = old | val;
+                    self.write_csr(csr, new)?;
+                }
+
+                if rd != 0 {
+                    self.set_x(rd as usize, old)?;
+                }
+            }
+
+            Csrrc { rd, rs1, csr } => {
+                let old = self.read_csr(csr)?;
+
+                let val = self.get_x(rs1 as usize)?;
+                if val != 0 {
+                    let new = old & !val;
+                    self.write_csr(csr, new)?;
+                }
+
+                if rd != 0 {
+                    self.set_x(rd as usize, old)?;
+                }
+            }
+
+            Csrrwi { rd, zimm, csr } => {
+                let old = self.read_csr(csr)?;
+
+                self.write_csr(csr, zimm as u32)?;
+
+                if rd != 0 {
+                    self.set_x(rd as usize, old)?;
+                }
+            }
+
+            Csrrsi { rd, zimm, csr } => {
+                let old = self.read_csr(csr)?;
+
+                if zimm != 0 {
+                    self.write_csr(csr, old | zimm as u32)?;
+                }
+
+                if rd != 0 {
+                    self.set_x(rd as usize, old)?;
+                }
+            }
+
+            Csrrci { rd, zimm, csr } => {
+                let old = self.read_csr(csr)?;
+
+                if zimm != 0 {
+                    self.write_csr(csr, old & !(zimm as u32))?;
+                }
+
+                if rd != 0 {
+                    self.set_x(rd as usize, old)?;
+                }
+            }
+
+            Mret => {
+                // returns the address saved in mepc
+                let mepc = self.read_csr(0x341)?; // mepc CSR
+
+                self.set_pc(mepc)?;
+
+                // typically clears active interrupt (MIE in mstatus)
+                let mut mstatus = self.read_csr(0x300)?;
+                mstatus |= 1 << 3; // Example: Reset the global interrupt (MIE)
+                self.write_csr(0x300, mstatus)?;
+            }
 
             // ===================== Memory ordering =====================
             Fence | FenceI => (), // no-op for RV32I
@@ -1719,5 +1804,87 @@ mod tests {
             0,
             "x0 must remain zero after all M-extension writes"
         );
+    }
+
+    // ─────────────────────────────────────────────
+    // CSR tests
+    // ─────────────────────────────────────────────
+    #[test]
+    fn csr_write_updates_state() {
+        let mut cpu = dummy_cpu();
+
+        // write mie (interrupt enable)
+        cpu.execute(Csrrwi {
+            rd: 0,
+            zimm: 0b1,
+            csr: 0x304, // mie
+        })
+        .unwrap();
+
+        assert_ne!(
+            cpu.read_csr(0x304).unwrap(),
+            0,
+            "CSR mie should be modified"
+        );
+    }
+
+    #[test]
+    fn csr_read_returns_old_value() {
+        let mut cpu = dummy_cpu();
+
+        cpu.write_csr(0x341, 124).unwrap();
+
+        let instr = Csrrw {
+            rd: 1,
+            rs1: 0,
+            csr: 0x341,
+        };
+
+        cpu.execute(instr).unwrap();
+
+        assert_eq!(cpu.get_x(1).unwrap(), 124);
+    }
+
+    #[test]
+    fn csrrs_with_rs1_zero_is_noop_on_csr() {
+        let mut cpu = dummy_cpu();
+
+        let original = cpu.read_csr(0x304).unwrap();
+
+        cpu.execute(Csrrs {
+            rd: 1,
+            rs1: 0,
+            csr: 0x304,
+        })
+        .unwrap();
+
+        assert_eq!(cpu.read_csr(0x304).unwrap(), original);
+    }
+
+    #[test]
+    fn csrrc_clears_bits() {
+        let mut cpu = dummy_cpu();
+
+        cpu.write_csr(0x304, 0b1111).unwrap();
+
+        cpu.execute(Csrrc {
+            rd: 1,
+            rs1: 0,
+            csr: 0x304,
+        })
+        .unwrap();
+
+        assert_eq!(cpu.read_csr(0x304).unwrap(), 0b1111);
+    }
+
+    #[test]
+    fn mret_restores_pc_from_mepc() {
+        let mut cpu = dummy_cpu();
+
+        cpu.write_csr(0x341, 0x800).unwrap(); // mepc
+
+        cpu.execute(Mret).unwrap();
+
+        assert_eq!(cpu.get_pc(), 0x800);
     }
 }

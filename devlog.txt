@@ -292,3 +292,11 @@ On VM:
 ok, VM is done! But I'll have to let CPU modifications for tomorrow, it's night already ;-;
 
 
+Day 24 - 22/04/2026
+Ok, let's add the following instructions on the Instruction enum!
+    CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI, MRET
+I finished the implementation of CSR and CLINT in all layers... now is time to compile FreeRTOS and test it
+I'm using Claude to make some files to compile FreeRTOS for my emulator, I don't know how it work
+Damn everything needs a review! FreeRTOS is showing the weak parts of my emulator and I'm fixing them
+I didn't made any commit after implementing CSR and CLINT in the emulator, it's bad...
+Now I'll make this OS boot in my emulator and the I'll fix this commit mess
