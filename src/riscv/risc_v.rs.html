@@ -521,7 +521,7 @@
 <a href=#521 id=521 data-nosnippet>521</a>    <span class="comment">// 3. Verify little-endian encoding (ELFDATA2LSB = 1)
 <a href=#522 id=522 data-nosnippet>522</a>    //    Original bug: incorrectly checked e_ident[5] again, duplicating the wrong field
 <a href=#523 id=523 data-nosnippet>523</a>    //    and failing to detect big-endian binaries
-<a href=#524 id=524 data-nosnippet>524</a>    </span><span class="kw">if </span>header.e_ident[<span class="number">6</span>] != <span class="number">1 </span>{
+<a href=#524 id=524 data-nosnippet>524</a>    </span><span class="kw">if </span>header.e_ident[<span class="number">5</span>] != <span class="number">1 </span>{
 <a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(RiscVError::WrongEndian);
 <a href=#526 id=526 data-nosnippet>526</a>    }
 <a href=#527 id=527 data-nosnippet>527</a>
