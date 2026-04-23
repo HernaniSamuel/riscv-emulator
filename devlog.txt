@@ -300,3 +300,8 @@ I'm using Claude to make some files to compile FreeRTOS for my emulator, I don't
 Damn everything needs a review! FreeRTOS is showing the weak parts of my emulator and I'm fixing them
 I didn't made any commit after implementing CSR and CLINT in the emulator, it's bad...
 Now I'll make this OS boot in my emulator and the I'll fix this commit mess
+
+
+Day 25 - 23/04/2026
+Ok, FreeRTOS is booting but isn't working in the correct way... I'll make a lot of small fixes to run it.
+Starting by fixing UART in read_u32 and write_u32, FreeRTOS uses UART in 32bit format, not only 8-bit

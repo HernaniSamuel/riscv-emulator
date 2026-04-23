@@ -416,6 +416,11 @@ impl VM {
     /// The following regions may be intercepted before RAM access:
     ///
     /// - CLINT timer registers (`mtime`, `mtimecmp`)
+    /// - UART registers:
+    ///   - `UART_STATUS` → returns transmitter status in the lowest byte
+    ///   - `UART_RX` → reads a single byte from standard input (blocking)
+    ///
+    /// UART is byte-oriented; even 32-bit reads only affect or return the low byte.
     ///
     /// All other addresses are treated as normal RAM.
     ///
@@ -429,6 +434,16 @@ impl VM {
     /// - The VM state is not modified if an error occurs
     /// - Reads from RAM use little-endian byte order
     pub fn read_u32(&self, addr: u32) -> Result<u32, VMError> {
+        match addr {
+            UART_STATUS => return Ok(TX_READY as u32),
+            UART_RX => {
+                let mut buf = [0u8];
+                std::io::stdin().read_exact(&mut buf).unwrap();
+                return Ok(buf[0] as u32);
+            }
+            _ => {}
+        }
+
         if let Some(value) = self.clint.read_u32(addr) {
             return Ok(value);
         }
@@ -457,6 +472,10 @@ impl VM {
     /// The following regions may be intercepted before RAM access:
     ///
     /// - CLINT timer registers (`mtime`, `mtimecmp`)
+    /// - UART registers:
+    ///   - `UART_TX` → writes a single byte (lowest 8 bits) to standard output
+    ///
+    /// UART is byte-oriented; even 32-bit writes only use the lowest byte.
     ///
     /// All other addresses are treated as normal RAM.
     ///
@@ -471,6 +490,11 @@ impl VM {
     /// - Writes to RAM use little-endian byte order
     /// - Device writes are delegated atomically to the target device
     pub fn write_u32(&mut self, addr: u32, value: u32) -> Result<(), VMError> {
+        if addr == UART_TX {
+            print!("{}", (value as u8) as char);
+            return Ok(());
+        }
+
         if self.clint.write_u32(addr, value) {
             return Ok(());
         }
