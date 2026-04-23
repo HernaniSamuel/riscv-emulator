@@ -457,17 +457,28 @@ impl CPU {
             }
 
             Mret => {
-                // returns the address saved in mepc
-                let mepc = self.read_csr(0x341)?; // mepc CSR
-
+                let mepc = self.read_csr(0x341)?;
                 self.set_pc(mepc)?;
 
-                // typically clears active interrupt (MIE in mstatus)
                 let mut mstatus = self.read_csr(0x300)?;
-                mstatus |= 1 << 3; // Example: Reset the global interrupt (MIE)
+
+                let mpie = (mstatus >> 7) & 1; // bit MPIE
+
+                // MIE <= MPIE
+                if mpie != 0 {
+                    mstatus |= 1 << 3;
+                } else {
+                    mstatus &= !(1 << 3);
+                }
+
+                // MPIE <= 1
+                mstatus |= 1 << 7;
+
+                // opcional: limpar MPP bits 12:11
+                mstatus &= !(0b11 << 11);
+
                 self.write_csr(0x300, mstatus)?;
             }
-
             // ===================== Memory ordering =====================
             Fence | FenceI => (), // no-op for RV32I
 

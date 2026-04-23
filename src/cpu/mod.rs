@@ -811,6 +811,8 @@ impl CPU {
 
         while self.running {
             self.step()?;
+            self.vm.tick();
+            self.take_interrupt_if_any()?;
         }
 
         Ok(())
@@ -883,6 +885,57 @@ impl CPU {
                     }
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    pub fn take_interrupt_if_any(&mut self) -> Result<(), CPUError> {
+        // CSRs
+        let mut mstatus = self.read_csr(0x300)?; // mstatus
+        let mie = self.read_csr(0x304)?; // mie
+        let mip = self.read_csr(0x344)?; // mip
+        let mtvec = self.read_csr(0x305)?; // mtvec
+
+        // Bits relevantes
+        let global_mie = (mstatus & (1 << 3)) != 0; // MIE
+        let mtie = (mie & (1 << 7)) != 0; // MTIE
+        let mtip = (mip & (1 << 7)) != 0; // MTIP
+
+        // Machine Timer Interrupt pendente e habilitada?
+        if global_mie && mtie && mtip {
+            let pc = self.get_pc();
+
+            // Salva ponto de retorno
+            self.write_csr(0x341, pc)?; // mepc
+
+            // mcause = interrupt bit + cause 7 (machine timer interrupt)
+            self.write_csr(0x342, 0x8000_0007)?; // mcause
+
+            // Trap entry:
+            // MPIE <= MIE
+            if global_mie {
+                mstatus |= 1 << 7;
+            } else {
+                mstatus &= !(1 << 7);
+            }
+
+            // MIE <= 0
+            mstatus &= !(1 << 3);
+
+            self.write_csr(0x300, mstatus)?;
+
+            // mtvec mode bits [1:0]
+            let mode = mtvec & 0b11;
+            let base = mtvec & !0b11;
+
+            let target = match mode {
+                0 => base,           // Direct mode
+                1 => base + (4 * 7), // Vectored mode (cause 7)
+                _ => base,           // fallback simples
+            };
+
+            self.set_pc(target)?;
         }
 
         Ok(())

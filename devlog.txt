@@ -313,3 +313,9 @@ Ok, now it's giving me an error related with wrong syscall, that's because we're
 but freeRTOS also uses ecall for context switch and other stuff, let's fix this.
 Apparently, I'm handling Ecall in a wrong way and this should return a enum Trap that is handled in another function...
 Let's make this Trap layer and see if the problem is solved in a correct way
+Nice, now the error is this being printed on terminal a milion times
+[FAIL] watchdog â scheduler appears stalled
+  heartbeat=0
+
+Maybe related with context switch, trap handling and clint... Let's focus on this error
+Now I'm trying to solve that problems modifying the code as minimum as possible!
