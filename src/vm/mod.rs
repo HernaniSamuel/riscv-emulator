@@ -223,7 +223,7 @@ pub struct VM {
     ram_base: u32,
     pc: u32,
     csr: Csrs,
-    clint: Clint,
+    pub clint: Clint, //TEMPORARY PUBLIC FOR DEBUG
 }
 
 impl VM {
@@ -311,20 +311,6 @@ impl VM {
         };
 
         let clint = Clint::default();
-
-        // temp debug
-        eprintln!("[DEBUG] ram_base = {:#010x}", ram_base);
-        eprintln!("[DEBUG] entry = {:#010x}", elf_file.entry);
-        eprintln!("[DEBUG] ram_size = {} bytes", ram_size);
-        for (i, seg) in elf_file.segments.iter().enumerate() {
-            eprintln!(
-                "[DEBUG] seg[{}] vaddr={:#010x} filesz={} memsz={}",
-                i,
-                seg.vaddr,
-                seg.data.len(),
-                seg.mem_size
-            );
-        }
 
         Ok(VM {
             ram,
@@ -496,6 +482,7 @@ impl VM {
         }
 
         if self.clint.write_u32(addr, value) {
+            self.update_timer_pending(); // ← atualiza mip imediatamente após escrita no CLINT
             return Ok(());
         }
 
@@ -741,14 +728,20 @@ impl VM {
     ///
     /// Alignment and control-flow correctness are the responsibility of the CPU layer.
     pub fn set_pc(&mut self, value: u32) -> Result<(), VMError> {
-        let addr = value as usize;
+        let offset = value
+            .checked_sub(self.ram_base)
+            .ok_or(VMError::MemoryOutOfBounds(value))? as usize;
 
-        if addr >= self.ram.len() {
+        if offset >= self.ram.len() {
             return Err(VMError::MemoryOutOfBounds(value));
         }
 
         self.pc = value;
         Ok(())
+    }
+
+    pub fn ram_base(&self) -> u32 {
+        self.ram_base
     }
 
     /// Advances the virtual machine time by one tick.
@@ -772,9 +765,12 @@ impl VM {
     /// instruction or per cycle) to simulate passage of time.
     pub fn tick(&mut self) {
         self.clint.tick();
+        self.update_timer_pending();
+    }
 
+    pub fn update_timer_pending(&mut self) {
         if self.clint.timer_pending() {
-            self.csr.mip |= 1 << 7; // MTIP
+            self.csr.mip |= 1 << 7;
         } else {
             self.csr.mip &= !(1 << 7);
         }
@@ -1133,9 +1129,6 @@ mod tests {
         vm.write_u32(MTIMECMP_LO, 1).unwrap();
 
         vm.tick(); // mtime = 1
-
-        println!("mtimecmp = {}", vm.clint.mtimecmp);
-        println!("mtime = {}", vm.clint.mtime);
 
         assert!(vm.timer_pending());
     }

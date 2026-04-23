@@ -319,3 +319,59 @@ Nice, now the error is this being printed on terminal a milion times
 
 Maybe related with context switch, trap handling and clint... Let's focus on this error
 Now I'm trying to solve that problems modifying the code as minimum as possible!
+Ok, here is the boss:
+PS C:\Users\Admin\rust-projects\riscv> cargo run --release -- ..\freertos-riscv-test\build\freertos.elf
+   Compiling riscv v0.1.0 (C:\Users\Admin\rust-projects\riscv)
+    Finished `release` profile [optimized] target(s) in 1.45s
+     Running `target\release\riscv.exe ..\freertos-riscv-test\build\freertos.elf`
+[DEBUG] ram_base = 0x00000000
+[DEBUG] entry = 0x00000000
+[DEBUG] ram_size = 65536 bytes
+[DEBUG] seg[0] vaddr=0x00000000 filesz=29488 memsz=62672
+[DEBUG] sp_init = 0x00010000
+boot
+[INFO] FreeRTOS RV32IM stress test starting
+[FAIL] watchdog â scheduler appears stalled
+  heartbeat=0
+[FAIL] watchdog â scheduler appears stalled
+  heartbeat=0
+[FAIL] watchdog â scheduler appears stalled
+  heartbeat=0
+[FAIL] watchdog â scheduler appears stalled
+  heartbeat=0
+[FA  queue sent=2
+error: IllegalInstruction(0)
+error: process didn't exit successfully: `target\release\riscv.exe ..\freertos-riscv-test\build\freertos.elf` (exit code: 1)
+
+This error is hard to solve because it seems to not have a single cause but a systematic cause... Let's see what I can do...
+
+Ok, I have to be honest: FreeRTOS running with a smaller main.c works and returns this code:
+
+PS C:\Users\Admin\rust-projects\riscv> cargo run --release -- ..\freertos-riscv-test\build\freertos.elf 
+   Compiling riscv v0.1.0 (C:\Users\Admin\rust-projects\riscv)
+    Finished `release` profile [optimized] target(s) in 1.34s
+     Running `target\release\riscv.exe ..\freertos-riscv-test\build\freertos.elf`
+=========================
+  RV32IM Emulator v0.1
+=========================
+[PASS] boot OK
+[PASS] UART OK
+[PASS] BSS zero-init OK
+halting.
+Exited with code 0
+
+It isn't run freeRTOS on the emulator, it can only boot the OS but cannot run any task without that error
+
+[Translator + AI] TECHNICAL EXPLANATION
+Today I spent time debugging FreeRTOS running on my custom RV32IM emulator.
+The firmware successfully boots and reaches its initialization stage (UART, BSS init, and startup sequence all work correctly), but the scheduler does not progress as expected. 
+Tasks remain stalled, and the watchdog consistently reports a lack of heartbeat.
+After extensive debugging of both the emulator and the FreeRTOS binary, I was unable to identify a single catastrophic failure. 
+Instead, the issue appears to be related to timing and interrupt consistency between the CLINT implementation and the scheduler expectations.
+At this stage, the emulator correctly executes bare-metal ELF binaries compiled with GCC and supports basic machine-mode functionality (CSR, MMIO, traps, and MRET).
+However, full FreeRTOS scheduling requires more accurate modeling of timer interrupts and execution timing.
+I consider the current state a successful milestone for the project: a functional RV32IM emulator capable of booting real firmware and entering OS initialization code.
+Future improvements would involve refining the CLINT timing model and improving deterministic execution behavior.
+For now, I’m wrapping up the project and cleaning up documentation and code structure for publication.
+
+

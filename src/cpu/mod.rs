@@ -257,6 +257,7 @@ pub struct CPU {
     ///
     /// This is typically set via an `ecall` that mimics a system `exit`.
     exit_code: i32,
+    tick_divider: u64,
 }
 
 /// Index of the stack pointer register (x2) in the RISC-V ABI.
@@ -301,15 +302,14 @@ impl CPU {
     pub fn new(elf_file: ElfImage, ram_length_kb: usize) -> Result<Self, CPUError> {
         let mut vm = VM::new(elf_file, ram_length_kb)?;
 
-        let sp_init = vm.ram_size() as u32 & !0xF;
+        let sp_init = (vm.ram_base() + vm.ram_size() as u32) & !0xF;
         vm.set_x(REG_SP, sp_init)?;
-
-        eprintln!("[DEBUG] sp_init = {:#010x}", sp_init);
 
         Ok(CPU {
             vm,
             running: false,
             exit_code: 0,
+            tick_divider: 0,
         })
     }
 
@@ -391,7 +391,7 @@ impl CPU {
     /// - No memory access occurs if the PC is misaligned
     /// - The VM state is not modified by this operation
     pub fn fetch(&self) -> Result<u32, CPUError> {
-        let pc = self.vm.get_pc();
+        let pc = self.get_pc();
 
         // ISA rule: instruction must be 4-byte aligned
         if pc & 0b11 != 0 {
@@ -808,11 +808,18 @@ impl CPU {
     /// - For disassembly mode, use [`CPU::run_disassemble`]
     pub fn run(&mut self) -> Result<(), CPUError> {
         self.running = true;
-
         while self.running {
+            let pc_before = self.get_pc(); // ← salva aqui
+
             self.step()?;
-            self.vm.tick();
-            self.take_interrupt_if_any()?;
+
+            self.tick_divider += 1;
+            if self.tick_divider >= 1 {
+                self.tick_divider = 0;
+                self.vm.tick();
+            }
+
+            self.take_interrupt_if_any(pc_before)?; // ← passa o PC
         }
 
         Ok(())
@@ -890,49 +897,32 @@ impl CPU {
         Ok(())
     }
 
-    pub fn take_interrupt_if_any(&mut self) -> Result<(), CPUError> {
-        // CSRs
-        let mut mstatus = self.read_csr(0x300)?; // mstatus
-        let mie = self.read_csr(0x304)?; // mie
-        let mip = self.read_csr(0x344)?; // mip
-        let mtvec = self.read_csr(0x305)?; // mtvec
+    pub fn take_interrupt_if_any(&mut self, mepc: u32) -> Result<(), CPUError> {
+        let mstatus = self.read_csr(0x300)?;
+        let mie = self.read_csr(0x304)?;
+        let mip = self.read_csr(0x344)?;
+        let mtvec = self.read_csr(0x305)?;
 
-        // Bits relevantes
-        let global_mie = (mstatus & (1 << 3)) != 0; // MIE
-        let mtie = (mie & (1 << 7)) != 0; // MTIE
-        let mtip = (mip & (1 << 7)) != 0; // MTIP
+        let global_mie = (mstatus & (1 << 3)) != 0;
+        let mtie = (mie & (1 << 7)) != 0;
+        let mtip = (mip & (1 << 7)) != 0;
 
-        // Machine Timer Interrupt pendente e habilitada?
         if global_mie && mtie && mtip {
-            let pc = self.get_pc();
+            // mepc aponta para a instrução que foi interrompida
+            self.write_csr(0x341, mepc)?;
+            self.write_csr(0x342, 0x8000_0007)?;
 
-            // Salva ponto de retorno
-            self.write_csr(0x341, pc)?; // mepc
+            // MPIE <= MIE (que já sabemos ser 1), MIE <= 0
+            let mut new_mstatus = mstatus;
+            new_mstatus |= 1 << 7; // MPIE = 1
+            new_mstatus &= !(1 << 3); // MIE = 0
+            self.write_csr(0x300, new_mstatus)?;
 
-            // mcause = interrupt bit + cause 7 (machine timer interrupt)
-            self.write_csr(0x342, 0x8000_0007)?; // mcause
-
-            // Trap entry:
-            // MPIE <= MIE
-            if global_mie {
-                mstatus |= 1 << 7;
-            } else {
-                mstatus &= !(1 << 7);
-            }
-
-            // MIE <= 0
-            mstatus &= !(1 << 3);
-
-            self.write_csr(0x300, mstatus)?;
-
-            // mtvec mode bits [1:0]
             let mode = mtvec & 0b11;
             let base = mtvec & !0b11;
-
             let target = match mode {
-                0 => base,           // Direct mode
-                1 => base + (4 * 7), // Vectored mode (cause 7)
-                _ => base,           // fallback simples
+                1 => base + (4 * 7), // vectored
+                _ => base,           // direct
             };
 
             self.set_pc(target)?;

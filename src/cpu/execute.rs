@@ -458,26 +458,21 @@ impl CPU {
 
             Mret => {
                 let mepc = self.read_csr(0x341)?;
-                self.set_pc(mepc)?;
 
                 let mut mstatus = self.read_csr(0x300)?;
+                let mpie = (mstatus >> 7) & 1;
 
-                let mpie = (mstatus >> 7) & 1; // bit MPIE
-
-                // MIE <= MPIE
-                if mpie != 0 {
+                if mpie == 1 {
                     mstatus |= 1 << 3;
                 } else {
                     mstatus &= !(1 << 3);
                 }
-
-                // MPIE <= 1
                 mstatus |= 1 << 7;
-
-                // opcional: limpar MPP bits 12:11
                 mstatus &= !(0b11 << 11);
 
                 self.write_csr(0x300, mstatus)?;
+                self.set_pc(mepc)?;
+                return Ok(()); // ← sem isso o loop adiciona +4 ao mepc
             }
             // ===================== Memory ordering =====================
             Fence | FenceI => (), // no-op for RV32I
