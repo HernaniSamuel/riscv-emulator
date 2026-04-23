@@ -305,3 +305,11 @@ Now I'll make this OS boot in my emulator and the I'll fix this commit mess
 Day 25 - 23/04/2026
 Ok, FreeRTOS is booting but isn't working in the correct way... I'll make a lot of small fixes to run it.
 Starting by fixing UART in read_u32 and write_u32, FreeRTOS uses UART in 32bit format, not only 8-bit
+
+Day 25 - 23/04/2026
+Ok, FreeRTOS is booting but isn't working in the correct way... I'll make a lot of small fixes to run it.
+Starting by fixing UART in read_u32 and write_u32, FreeRTOS uses UART in 32bit format, not only 8-bit
+Ok, now it's giving me an error related with wrong syscall, that's because we're using linux ABI syscall for small C tests,
+but freeRTOS also uses ecall for context switch and other stuff, let's fix this.
+Apparently, I'm handling Ecall in a wrong way and this should return a enum Trap that is handled in another function...
+Let's make this Trap layer and see if the problem is solved in a correct way

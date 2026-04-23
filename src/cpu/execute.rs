@@ -363,18 +363,25 @@ impl CPU {
             // ===================== System / CSR =====================
             Ecall => {
                 let syscall = self.get_x(17)?; // a7
+
                 match syscall {
+                    0 => {
+                        // FreeRTOS software yield
+                        // no-op for while
+                    }
+
                     93 => {
-                        let code = self.get_x(10)? as i32; // a0
+                        let code = self.get_x(10)? as i32;
                         self.set_exit_code(code);
                         self.set_running(false);
                     }
+
                     _ => {
                         return Err(CPUError::UnsupportedSyscall(syscall));
                     }
                 }
             }
-            Ebreak => (), // TODO: implement ebreak handler
+            Ebreak => (),
 
             Csrrw { rd, rs1, csr } => {
                 let old = self.read_csr(csr)?;
