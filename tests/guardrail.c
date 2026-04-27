@@ -98,6 +98,6 @@ void _start() {
 // On windows it needs WSL, I don't know how to run it on linux but it appears to be even easier than in windows...
 
 // generate ELF:
-// wsl riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 -O0 -nostdlib -Ttext=0x0 tests/guardrail.c -o tests/guardrail.elf
+// wsl riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 -O0 -nostdlib -Ttext=0x80000000 tests/guardrail.c -o tests/guardrail.elf
 // run:
 // cargo run tests/guardrail.elf
