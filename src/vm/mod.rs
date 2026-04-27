@@ -127,23 +127,15 @@ pub use csr::*;
 use crate::risc_v::ElfImage;
 use std::io::Read;
 
-/// Base address for the UART MMIO region.
-const UART_BASE: u32 = 0x1000_0000;
+const RAM_BASE: u32 = 0x8000_0000;
 
-/// UART transmit register (write-only).
-/// Writing a byte here outputs it to stdout.
-const UART_TX: u32 = UART_BASE;
-
-/// UART receive register (read-only).
-/// Reading blocks until a byte is available from stdin.
-const UART_RX: u32 = UART_BASE;
-
-/// UART status register.
-/// Bit 0 (`TX_READY`) indicates the transmitter is ready.
-const UART_STATUS: u32 = UART_BASE + 0x04;
-
-/// UART transmitter ready flag.
-const TX_READY: u8 = 0b0000_0001;
+/// UART constants
+pub const UART_BASE: u32 = 0x1000_0000;
+pub const UART_SIZE: u32 = 0x1000;
+pub const UART_TX: u32 = UART_BASE + 0;
+pub const UART_RX: u32 = UART_BASE + 0;
+pub const UART_LSR: u32 = UART_BASE + 5;
+pub const TX_READY: u8 = 0x20;
 
 /// Errors that can occur in the virtual machine layer.
 ///
@@ -223,7 +215,7 @@ pub struct VM {
     ram_base: u32,
     pc: u32,
     csr: Csrs,
-    pub clint: Clint, //TEMPORARY PUBLIC FOR DEBUG
+    clint: Clint, 
 }
 
 impl VM {
@@ -280,8 +272,7 @@ impl VM {
             .checked_mul(1024)
             .ok_or(VMError::InvalidRamSize)?;
 
-        // Detecta base address automaticamente
-        let ram_base = elf_file.segments.iter().map(|s| s.vaddr).min().unwrap_or(0);
+        let ram_base = RAM_BASE; 
 
         for seg in &elf_file.segments {
             let offset = (seg.vaddr - ram_base) as usize;
