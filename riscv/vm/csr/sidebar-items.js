@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["MIP_WRITABLE","MSTATUS_MASK"],"struct":["Csrs"]};

@@ -1,2 +1,2 @@
-createSrcSidebar('[["riscv",["",[["cpu",[],["decode.rs","execute.rs","instruction.rs","mod.rs"]],["vm",[],["clint.rs","csr.rs","mod.rs"]]],["cli.rs","lib.rs","risc_v.rs"]]]]');
-//{"start":19,"fragment_lengths":[153]}
+createSrcSidebar('[["riscv",["",[],["main.rs"]]]]');
+//{"start":19,"fragment_lengths":[29]}
