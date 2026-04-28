@@ -402,3 +402,15 @@ Ok, I guess the first step is to clean this code, so it will pass by my CI/CD. T
 Day 29 - 28/04/2026
 Let's refactor some stuff and then document everything carefully to get that bealtiful deployed documentation again!
 I'm taking some methods of honorable-mention branch, like Instruction and decode, execute is done in risc-vibes model...
+Ok! I documented everything and placed a nice image on readme! So the FreeRTOS test still in portuguese but the language doesn't matter, the logic matter.
+Tomorrow I'll make the disassembly mode to print things like the GCC disassembler! 
+Actually, I'm thinking about adding more CLI tools for this emulator (so clap might make a comeback):
+
+1. Symbol table loader
+2. Disassembler
+3. Register dump
+4. Execution trace
+5. GDB stub
+
+Then this emulator will be finished in style!
+

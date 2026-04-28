@@ -4,6 +4,9 @@
 
 A single-file, cycle-accurate **RV32IM** emulator written in Rust. Loads and executes ELF binaries bare-metal, with full machine-mode privilege support, a CLINT timer, and an NS16550-compatible UART — capable of running real operating systems such as **FreeRTOS**.
 
+![FreeRTOS running on the emulator](assets/demo.png)
+*Left: riscv-emulator. Right: QEMU. Identical output.*
+
 ---
 
 ## Features
