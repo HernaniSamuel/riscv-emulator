@@ -1,4 +1,7 @@
-//! Single-cycle RV32IM emulator capable of loading and executing ELF binaries.
+//! Cycle-accurate RV32IM emulator capable of loading and executing ELF binaries.
+//!
+//! Successfully boots and runs **FreeRTOS** using CLINT timer interrupts,
+//! vectored traps, and machine-mode context restore.
 //!
 //! # Supported ISA
 //!
