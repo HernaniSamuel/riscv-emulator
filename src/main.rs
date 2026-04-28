@@ -23,7 +23,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // main loop
     cpu.running = true;
     while cpu.running {
-        cpu.tick();
         cpu.step();
     }
     println!("Exit code: {}", cpu.exit_code);
@@ -81,45 +80,6 @@ fn is_ram(addr: u32, mem_size: usize) -> bool {
 
 fn to_ram_index(addr: u32) -> usize {
     (addr as usize).wrapping_sub(RAM_BASE)
-}
-
-#[inline(always)]
-fn sign_extend(value: u32, bits: u32) -> i32 {
-    ((value << (32 - bits)) as i32) >> (32 - bits)
-}
-
-fn imm_i(inst: u32) -> i32 {
-    sign_extend(inst >> 20, 12)
-}
-
-fn imm_s(inst: u32) -> i32 {
-    let v = ((inst >> 25) << 5) | ((inst >> 7) & 0x1f);
-    sign_extend(v, 12)
-}
-
-fn imm_b(inst: u32) -> i32 {
-    let v = ((inst >> 31) << 12)
-        | (((inst >> 7) & 1) << 11)
-        | (((inst >> 25) & 0x3f) << 5)
-        | (((inst >> 8) & 0xf) << 1);
-
-    sign_extend(v, 13)
-}
-
-fn imm_u(inst: u32) -> i32 {
-    (inst & 0xffff_f000) as i32
-}
-
-fn imm_j(inst: u32) -> i32 {
-    let v = ((inst >> 31) << 20)
-        | (((inst >> 12) & 0xff) << 12)
-        | (((inst >> 20) & 1) << 11)
-        | (((inst >> 21) & 0x3ff) << 1);
-
-    sign_extend(v, 21)
-}
-fn shamt(inst: u32) -> u32 {
-    (inst >> 20) & 0x1f
 }
 
 pub struct CPU {
@@ -427,619 +387,920 @@ impl CPU {
             self.memory[a..a + 4].copy_from_slice(&val.to_le_bytes());
         }
     }
-    pub fn step(&mut self) {
-        if self.pc == 0 || self.pc == 0xFFFFFFFF {
-            panic!("PC inválido: 0x{:08x}", self.pc);
+
+    pub fn fetch(&self) -> u32 {
+        let pc = self.pc;
+        if pc == 0 || pc == 0xffff_ffff {
+            panic!("pc inválido");
         }
 
-        let inst = self.read_u32(self.pc);
+        self.read_u32(pc)
+    }
 
-        let opcode = inst & 0x7f;
-        let rd = ((inst >> 7) & 0x1f) as usize;
-        let funct3 = (inst >> 12) & 7;
-        let rs1 = ((inst >> 15) & 0x1f) as usize;
-        let rs2 = ((inst >> 20) & 0x1f) as usize;
-        let funct7 = (inst >> 25) & 0x7f;
+    pub fn decode(&mut self, instruction: u32) -> Instruction {
+        let opcode = instruction & 0x7f;
+        let rd = ((instruction >> 7) & 0x1f) as u8;
+        let funct3 = (instruction >> 12) & 0x7;
+        let rs1 = ((instruction >> 15) & 0x1f) as u8;
+        let rs2 = ((instruction >> 20) & 0x1f) as u8;
+        let funct7 = (instruction >> 25) & 0x7f;
 
-        let imm_i = imm_i(inst);
-        let imm_s = imm_s(inst);
-        let imm_b = imm_b(inst);
-        let imm_u = imm_u(inst);
-        let imm_j = imm_j(inst);
-        let shamt = shamt(inst);
+        // ================= immediates =================
+
+        let sign_extend =
+            |value: u32, bits: u32| -> i32 { ((value << (32 - bits)) as i32) >> (32 - bits) };
+
+        let imm_i = sign_extend(instruction >> 20, 12);
+
+        let imm_s = sign_extend(((instruction >> 25) << 5) | ((instruction >> 7) & 0x1f), 12);
+
+        let imm_b = sign_extend(
+            ((instruction >> 31) << 12)
+                | (((instruction >> 7) & 0x1) << 11)
+                | (((instruction >> 25) & 0x3f) << 5)
+                | (((instruction >> 8) & 0xf) << 1),
+            13,
+        );
+
+        let imm_u = (instruction & 0xffff_f000) as i32;
+
+        let imm_j = sign_extend(
+            ((instruction >> 31) << 20)
+                | (((instruction >> 12) & 0xff) << 12)
+                | (((instruction >> 20) & 0x1) << 11)
+                | (((instruction >> 21) & 0x3ff) << 1),
+            21,
+        );
+
+        let shamt = ((instruction >> 20) & 0x1f) as u8;
 
         match opcode {
+            // ================= R =================
             0b0110011 => match (funct3, funct7) {
-                // ADD
-                (0x0, 0x00) => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1].wrapping_add(self.regs[rs2]);
-                    }
-                }
+                (0x0, 0x00) => Instruction::Add { rd, rs1, rs2 },
+                (0x0, 0x20) => Instruction::Sub { rd, rs1, rs2 },
+                (0x1, 0x00) => Instruction::Sll { rd, rs1, rs2 },
+                (0x2, 0x00) => Instruction::Slt { rd, rs1, rs2 },
+                (0x3, 0x00) => Instruction::Sltu { rd, rs1, rs2 },
+                (0x4, 0x00) => Instruction::Xor { rd, rs1, rs2 },
+                (0x5, 0x00) => Instruction::Srl { rd, rs1, rs2 },
+                (0x5, 0x20) => Instruction::Sra { rd, rs1, rs2 },
+                (0x6, 0x00) => Instruction::Or { rd, rs1, rs2 },
+                (0x7, 0x00) => Instruction::And { rd, rs1, rs2 },
 
-                // SUB
-                (0x0, 0x20) => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1].wrapping_sub(self.regs[rs2]);
-                    }
-                }
+                // RV32M
+                (0x0, 0x01) => Instruction::Mul { rd, rs1, rs2 },
+                (0x1, 0x01) => Instruction::Mulh { rd, rs1, rs2 },
+                (0x2, 0x01) => Instruction::Mulhsu { rd, rs1, rs2 },
+                (0x3, 0x01) => Instruction::Mulhu { rd, rs1, rs2 },
+                (0x4, 0x01) => Instruction::Div { rd, rs1, rs2 },
+                (0x5, 0x01) => Instruction::Divu { rd, rs1, rs2 },
+                (0x6, 0x01) => Instruction::Rem { rd, rs1, rs2 },
+                (0x7, 0x01) => Instruction::Remu { rd, rs1, rs2 },
 
-                // SLL
-                (0x1, 0x00) => {
-                    if rd != 0 {
-                        let shamt = self.regs[rs2] & 0x1f;
-                        self.regs[rd] = self.regs[rs1] << shamt;
-                    }
-                }
-
-                // SLT
-                (0x2, 0x00) => {
-                    if rd != 0 {
-                        let val = (self.regs[rs1] as i32) < (self.regs[rs2] as i32);
-                        self.regs[rd] = val as u32;
-                    }
-                }
-
-                // SLTU
-                (0x3, 0x00) => {
-                    if rd != 0 {
-                        self.regs[rd] = (self.regs[rs1] < self.regs[rs2]) as u32;
-                    }
-                }
-
-                // XOR
-                (0x4, 0x00) => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1] ^ self.regs[rs2];
-                    }
-                }
-
-                // SRL
-                (0x5, 0x00) => {
-                    if rd != 0 {
-                        let shamt = self.regs[rs2] & 0x1f;
-                        self.regs[rd] = self.regs[rs1] >> shamt;
-                    }
-                }
-
-                // SRA
-                (0x5, 0x20) => {
-                    if rd != 0 {
-                        let shamt = self.regs[rs2] & 0x1f;
-                        self.regs[rd] = ((self.regs[rs1] as i32) >> shamt) as u32;
-                    }
-                }
-
-                // OR
-                (0x6, 0x00) => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1] | self.regs[rs2];
-                    }
-                }
-
-                // AND
-                (0x7, 0x00) => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1] & self.regs[rs2];
-                    }
-                }
-                // MUL
-                (0x0, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1] as i32 as i64;
-                        let b = self.regs[rs2] as i32 as i64;
-                        self.regs[rd] = (a.wrapping_mul(b) as u64) as u32;
-                    }
-                }
-
-                // MULH
-                (0x1, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1] as i32 as i64;
-                        let b = self.regs[rs2] as i32 as i64;
-                        self.regs[rd] = ((a.wrapping_mul(b) >> 32) as u64) as u32;
-                    }
-                }
-
-                // MULHSU
-                (0x2, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1] as i32 as i64;
-                        let b = self.regs[rs2] as u64 as i64;
-                        self.regs[rd] = ((a.wrapping_mul(b) >> 32) as u64) as u32;
-                    }
-                }
-
-                // MULHU
-                (0x3, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1] as u64;
-                        let b = self.regs[rs2] as u64;
-                        self.regs[rd] = (a.wrapping_mul(b) >> 32) as u32;
-                    }
-                }
-
-                // DIV
-                (0x4, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1] as i32;
-                        let b = self.regs[rs2] as i32;
-
-                        let val = if b == 0 {
-                            u32::MAX
-                        } else if a == i32::MIN && b == -1 {
-                            a as u32
-                        } else {
-                            (a / b) as u32
-                        };
-
-                        self.regs[rd] = val;
-                    }
-                }
-
-                // DIVU
-                (0x5, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1];
-                        let b = self.regs[rs2];
-
-                        self.regs[rd] = a.checked_div(b).unwrap_or(u32::MAX);
-                    }
-                }
-
-                // REM
-                (0x6, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1] as i32;
-                        let b = self.regs[rs2] as i32;
-
-                        let val = if b == 0 {
-                            a as u32
-                        } else if a == i32::MIN && b == -1 {
-                            0
-                        } else {
-                            (a % b) as u32
-                        };
-
-                        self.regs[rd] = val;
-                    }
-                }
-
-                // REMU
-                (0x7, 0x01) => {
-                    if rd != 0 {
-                        let a = self.regs[rs1];
-                        let b = self.regs[rs2];
-
-                        self.regs[rd] = if b == 0 { a } else { a % b };
-                    }
-                }
-
-                _ => panic!("Invalid R instruction"),
+                _ => panic!("illegal instruction 0x{:08x}", instruction),
             },
 
+            // ================= I =================
             0b0010011 => match funct3 {
-                // ADDI
-                0x0 => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1].wrapping_add(imm_i as u32);
-                    }
-                }
+                0x0 => Instruction::Addi {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x2 => Instruction::Slti {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x3 => Instruction::Sltiu {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x4 => Instruction::Xori {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x6 => Instruction::Ori {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x7 => Instruction::Andi {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
 
-                // SLTI
-                0x2 => {
-                    if rd != 0 {
-                        let val = (self.regs[rs1] as i32) < imm_i;
-                        self.regs[rd] = val as u32;
-                    }
-                }
+                0x1 if funct7 == 0x00 => Instruction::Slli { rd, rs1, shamt },
+                0x1 => panic!("illegal instruction 0x{:08x}", instruction),
 
-                // SLTIU
-                0x3 => {
-                    if rd != 0 {
-                        self.regs[rd] = (self.regs[rs1] < imm_i as u32) as u32;
-                    }
-                }
+                0x5 => match funct7 {
+                    0x00 => Instruction::Srli { rd, rs1, shamt },
+                    0x20 => Instruction::Srai { rd, rs1, shamt },
+                    _ => panic!("illegal instruction 0x{:08x}", instruction),
+                },
 
-                // XORI
-                0x4 => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1] ^ (imm_i as u32);
-                    }
-                }
-
-                // ORI
-                0x6 => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1] | (imm_i as u32);
-                    }
-                }
-
-                // ANDI
-                0x7 => {
-                    if rd != 0 {
-                        self.regs[rd] = self.regs[rs1] & (imm_i as u32);
-                    }
-                }
-
-                // ================= SHIFT (caso especial) =================
-                0x1 => {
-                    if rd != 0 {
-                        if funct7 != 0x00 {
-                            panic!("illegal SLLI");
-                        }
-                        self.regs[rd] = self.regs[rs1] << (shamt & 0x1f);
-                    }
-                }
-
-                0x5 => {
-                    if rd != 0 {
-                        match funct7 {
-                            // SRLI
-                            0x00 => {
-                                self.regs[rd] = self.regs[rs1] >> (shamt & 0x1f);
-                            }
-
-                            // SRAI
-                            0x20 => {
-                                self.regs[rd] = ((self.regs[rs1] as i32) >> (shamt & 0x1f)) as u32;
-                            }
-
-                            _ => panic!("illegal shift"),
-                        }
-                    }
-                }
-
-                _ => panic!("invalid I-type"),
+                _ => panic!("illegal instruction 0x{:08x}", instruction),
             },
 
+            // ================= LOAD =================
             0b0000011 => match funct3 {
-                // LB (signed byte)
-                0x0 => {
-                    if rd != 0 {
-                        let addr = self.regs[rs1].wrapping_add(imm_i as u32);
-                        let val = self.read_u8(addr) as i8 as i32 as u32;
-                        self.regs[rd] = val;
-                    }
-                }
+                0x0 => Instruction::Lb {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x1 => Instruction::Lh {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x2 => Instruction::Lw {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x4 => Instruction::Lbu {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
+                0x5 => Instruction::Lhu {
+                    rd,
+                    rs1,
+                    imm: imm_i,
+                },
 
-                // LH (signed halfword)
-                0x1 => {
-                    if rd != 0 {
-                        let addr = self.regs[rs1].wrapping_add(imm_i as u32);
-                        let val = self.read_u16(addr) as i16 as i32 as u32;
-                        self.regs[rd] = val;
-                    }
-                }
-
-                // LW (word)
-                0x2 => {
-                    if rd != 0 {
-                        let addr = self.regs[rs1].wrapping_add(imm_i as u32);
-                        self.regs[rd] = self.read_u32(addr);
-                    }
-                }
-
-                // LBU (unsigned byte)
-                0x4 => {
-                    if rd != 0 {
-                        let addr = self.regs[rs1].wrapping_add(imm_i as u32);
-                        self.regs[rd] = self.read_u8(addr) as u32;
-                    }
-                }
-
-                // LHU (unsigned halfword)
-                0x5 => {
-                    if rd != 0 {
-                        let addr = self.regs[rs1].wrapping_add(imm_i as u32);
-                        self.regs[rd] = self.read_u16(addr) as u32;
-                    }
-                }
-
-                _ => panic!("invalid LOAD instruction"),
+                _ => panic!("illegal instruction 0x{:08x}", instruction),
             },
 
+            // ================= STORE =================
             0b0100011 => match funct3 {
-                // SB (store byte)
-                0x0 => {
-                    let addr = self.regs[rs1].wrapping_add(imm_s as u32);
-                    self.write_u8(addr, self.regs[rs2] as u8);
-                }
+                0x0 => Instruction::Sb {
+                    rs1,
+                    rs2,
+                    imm: imm_s,
+                },
+                0x1 => Instruction::Sh {
+                    rs1,
+                    rs2,
+                    imm: imm_s,
+                },
+                0x2 => Instruction::Sw {
+                    rs1,
+                    rs2,
+                    imm: imm_s,
+                },
 
-                // SH (store halfword)
-                0x1 => {
-                    let addr = self.regs[rs1].wrapping_add(imm_s as u32);
-                    self.write_u16(addr, self.regs[rs2] as u16);
-                }
-
-                // SW (store word)
-                0x2 => {
-                    let addr = self.regs[rs1].wrapping_add(imm_s as u32);
-                    self.write_u32(addr, self.regs[rs2]);
-                }
-
-                _ => panic!("invalid STORE instruction"),
+                _ => panic!("illegal instruction 0x{:08x}", instruction),
             },
 
-            0b1100011 => {
-                match funct3 {
-                    // BEQ
-                    0x0 => {
-                        if self.regs[rs1] == self.regs[rs2] {
-                            self.pc = (self.pc as i32).wrapping_add(imm_b) as u32;
-                            return;
-                        }
-                    }
+            // ================= BRANCH =================
+            0b1100011 => match funct3 {
+                0x0 => Instruction::Beq {
+                    rs1,
+                    rs2,
+                    imm: imm_b,
+                },
+                0x1 => Instruction::Bne {
+                    rs1,
+                    rs2,
+                    imm: imm_b,
+                },
+                0x4 => Instruction::Blt {
+                    rs1,
+                    rs2,
+                    imm: imm_b,
+                },
+                0x5 => Instruction::Bge {
+                    rs1,
+                    rs2,
+                    imm: imm_b,
+                },
+                0x6 => Instruction::Bltu {
+                    rs1,
+                    rs2,
+                    imm: imm_b,
+                },
+                0x7 => Instruction::Bgeu {
+                    rs1,
+                    rs2,
+                    imm: imm_b,
+                },
 
-                    // BNE
-                    0x1 => {
-                        if self.regs[rs1] != self.regs[rs2] {
-                            self.pc = (self.pc as i32).wrapping_add(imm_b) as u32;
-                            return;
-                        }
-                    }
-
-                    // BLT (signed)
-                    0x4 => {
-                        if (self.regs[rs1] as i32) < (self.regs[rs2] as i32) {
-                            self.pc = (self.pc as i32).wrapping_add(imm_b) as u32;
-                            return;
-                        }
-                    }
-                    // BGE (signed)
-                    0x5 => {
-                        if (self.regs[rs1] as i32) >= (self.regs[rs2] as i32) {
-                            self.pc = (self.pc as i32).wrapping_add(imm_b) as u32;
-                            return;
-                        }
-                    }
-
-                    // BLTU (unsigned)
-                    0x6 => {
-                        if self.regs[rs1] < self.regs[rs2] {
-                            self.pc = (self.pc as i32).wrapping_add(imm_b) as u32;
-                            return;
-                        }
-                    }
-
-                    // BGEU (unsigned)
-                    0x7 => {
-                        if self.regs[rs1] >= self.regs[rs2] {
-                            self.pc = (self.pc as i32).wrapping_add(imm_b) as u32;
-                            return;
-                        }
-                    }
-
-                    _ => panic!("invalid BRANCH"),
-                }
-            }
+                _ => panic!("illegal instruction 0x{:08x}", instruction),
+            },
 
             // ================= U =================
-
-            // LUI
-            0b0110111 => {
-                if rd != 0 {
-                    self.regs[rd] = imm_u as u32;
-                }
-            }
-
-            // AUIPC
-            0b0010111 => {
-                if rd != 0 {
-                    self.regs[rd] = self.pc.wrapping_add(imm_u as u32);
-                }
-            }
+            0b0110111 => Instruction::Lui { rd, imm: imm_u },
+            0b0010111 => Instruction::Auipc { rd, imm: imm_u },
 
             // ================= J =================
+            0b1101111 => Instruction::Jal { rd, imm: imm_j },
 
-            // JAL
-            0b1101111 => {
-                if rd != 0 {
-                    self.regs[rd] = self.pc.wrapping_add(4);
-                }
-                self.pc = self.pc.wrapping_add(imm_j as u32);
-                return;
-            }
+            0b1100111 if funct3 == 0x0 => Instruction::Jalr {
+                rd,
+                rs1,
+                imm: imm_i,
+            },
 
-            // JALR
-            0b1100111 => {
-                if funct3 == 0x0 {
-                    if rd != 0 {
-                        self.regs[rd] = self.pc.wrapping_add(4);
-                    }
-
-                    let base = self.regs[rs1];
-                    self.pc = base.wrapping_add(imm_i as u32) & !1;
-
-                    return;
-                }
-
-                panic!("invalid JALR");
-            }
+            0b1100111 => panic!("illegal instruction 0x{:08x}", instruction),
 
             // ================= FENCE =================
             0b0001111 => match funct3 {
-                0x0 | 0x1 => (),
-                _ => panic!("invalid fence"),
+                0x0 => Instruction::Fence,
+                0x1 => Instruction::FenceI,
+                _ => panic!("illegal instruction 0x{:08x}", instruction),
             },
 
+            // ================= SYSTEM / CSR =================
             0b1110011 => {
-                let csr = ((inst >> 20) & 0xfff) as u16;
-                let zimm = (inst >> 15) & 0x1f;
+                let csr = ((instruction >> 20) & 0xfff) as u16;
+                let zimm = ((instruction >> 15) & 0x1f) as u8;
 
                 match funct3 {
-                    // =========================================================
-                    // SYSTEM
-                    // =========================================================
                     0x0 => match csr {
-                        // ECALL
-                        0x000 => {
-                            let syscall = self.regs[17];
+                        0x000 => Instruction::Ecall,
+                        0x001 => Instruction::Ebreak,
+                        0x302 => Instruction::Mret,
+                        0x105 => Instruction::Wfi,
 
-                            match syscall {
-                                0 => {
-                                    self.trap(11);
-                                    return;
-                                }
-
-                                93 => {
-                                    self.exit_code = self.regs[10] as i32;
-                                    self.running = false;
-                                    return;
-                                }
-
-                                _ => {
-                                    panic!(
-                                        "unsupported syscall={} a0={} a1={} a2={} pc=0x{:08x}",
-                                        self.regs[17],
-                                        self.regs[10],
-                                        self.regs[11],
-                                        self.regs[12],
-                                        self.pc
-                                    );
-                                }
-                            }
-                        }
-
-                        // EBREAK
-                        0x001 => {
-                            return;
-                        }
-
-                        // MRET
-                        0x302 => {
-                            let mepc = self.csr_read(MEPC as u16);
-                            let mut mstatus = self.csr_read(MSTATUS as u16);
-
-                            let mpie = (mstatus & MSTATUS_MPIE) != 0;
-
-                            if mpie {
-                                mstatus |= MSTATUS_MIE;
-                            } else {
-                                mstatus &= !MSTATUS_MIE;
-                            }
-
-                            mstatus |= MSTATUS_MPIE;
-                            mstatus &= !MSTATUS_MPP_MASK;
-
-                            self.csr_write(MSTATUS as u16, mstatus);
-                            self.csr_write(MCAUSE as u16, 0);
-
-                            self.pc = mepc;
-                            return;
-                        }
-
-                        // WFI
-                        0x105 => {
-                            if self.mtimecmp > self.mtime {
-                                self.mtime = self.mtimecmp.saturating_sub(1);
-                            }
-                            self.pc = self.pc.wrapping_add(4);
-                            return;
-                        }
-
-                        _ => panic!("invalid system instruction"),
+                        _ => panic!("illegal instruction 0x{:08x}", instruction),
                     },
 
-                    // =========================================================
-                    // CSRRW
-                    // =========================================================
-                    0x1 => {
-                        let old = self.csr_read(csr);
-                        let val = self.regs[rs1];
+                    0x1 => Instruction::Csrrw { rd, rs1, csr },
+                    0x2 => Instruction::Csrrs { rd, rs1, csr },
+                    0x3 => Instruction::Csrrc { rd, rs1, csr },
 
-                        self.csr_write(csr, val);
+                    0x5 => Instruction::Csrrwi { rd, zimm, csr },
+                    0x6 => Instruction::Csrrsi { rd, zimm, csr },
+                    0x7 => Instruction::Csrrci { rd, zimm, csr },
 
-                        if rd != 0 {
-                            self.regs[rd] = old;
-                        }
-                    }
-
-                    // =========================================================
-                    // CSRRS
-                    // =========================================================
-                    0x2 => {
-                        let old = self.csr_read(csr);
-                        let val = self.regs[rs1];
-
-                        if val != 0 {
-                            self.csr_write(csr, old | val);
-                        }
-
-                        if rd != 0 {
-                            self.regs[rd] = old;
-                        }
-                    }
-
-                    // =========================================================
-                    // CSRRC
-                    // =========================================================
-                    0x3 => {
-                        let old = self.csr_read(csr);
-                        let val = self.regs[rs1];
-
-                        if val != 0 {
-                            self.csr_write(csr, old & !val);
-                        }
-
-                        if rd != 0 {
-                            self.regs[rd] = old;
-                        }
-                    }
-
-                    // =========================================================
-                    // CSRRWI
-                    // =========================================================
-                    0x5 => {
-                        let old = self.csr_read(csr);
-
-                        self.csr_write(csr, zimm);
-
-                        if rd != 0 {
-                            self.regs[rd] = old;
-                        }
-                    }
-
-                    // =========================================================
-                    // CSRRSI
-                    // =========================================================
-                    0x6 => {
-                        let old = self.csr_read(csr);
-
-                        if zimm != 0 {
-                            self.csr_write(csr, old | zimm);
-                        }
-
-                        if rd != 0 {
-                            self.regs[rd] = old;
-                        }
-                    }
-
-                    // =========================================================
-                    // CSRRCI
-                    // =========================================================
-                    0x7 => {
-                        let old = self.csr_read(csr);
-                        if zimm != 0 {
-                            let novo = old & !zimm;
-                            self.csr_write(csr, novo);
-                        }
-                        if rd != 0 {
-                            self.regs[rd] = old;
-                        }
-                    }
-
-                    _ => panic!("invalid CSR instruction"),
+                    _ => panic!("illegal instruction 0x{:08x}", instruction),
                 }
             }
 
-            _ => panic!(
-                "opcode invalido=0x{:02x} inst=0x{:08x} pc=0x{:08x}",
-                opcode, inst, self.pc
-            ),
+            _ => panic!("illegal instruction 0x{:08x}", instruction),
         }
-        self.pc = self.pc.wrapping_add(4);
     }
+
+    pub fn execute(&mut self, instr: Instruction) -> StepResult {
+        #[inline(always)]
+        fn idx(r: u8) -> usize {
+            r as usize
+        }
+
+        #[inline(always)]
+        fn wr(cpu: &mut CPU, rd: u8, val: u32) {
+            if rd != 0 {
+                cpu.regs[rd as usize] = val;
+            }
+        }
+
+        match instr {
+            // =====================================================
+            // RV32I - R TYPE
+            // =====================================================
+            Instruction::Add { rd, rs1, rs2 } => {
+                wr(
+                    self,
+                    rd,
+                    self.regs[idx(rs1)].wrapping_add(self.regs[idx(rs2)]),
+                );
+            }
+
+            Instruction::Sub { rd, rs1, rs2 } => {
+                wr(
+                    self,
+                    rd,
+                    self.regs[idx(rs1)].wrapping_sub(self.regs[idx(rs2)]),
+                );
+            }
+
+            Instruction::Sll { rd, rs1, rs2 } => {
+                let shamt = self.regs[idx(rs2)] & 0x1f;
+                wr(self, rd, self.regs[idx(rs1)] << shamt);
+            }
+
+            Instruction::Slt { rd, rs1, rs2 } => {
+                wr(
+                    self,
+                    rd,
+                    ((self.regs[idx(rs1)] as i32) < (self.regs[idx(rs2)] as i32)) as u32,
+                );
+            }
+
+            Instruction::Sltu { rd, rs1, rs2 } => {
+                wr(self, rd, (self.regs[idx(rs1)] < self.regs[idx(rs2)]) as u32);
+            }
+
+            Instruction::Xor { rd, rs1, rs2 } => {
+                wr(self, rd, self.regs[idx(rs1)] ^ self.regs[idx(rs2)]);
+            }
+
+            Instruction::Srl { rd, rs1, rs2 } => {
+                let shamt = self.regs[idx(rs2)] & 0x1f;
+                wr(self, rd, self.regs[idx(rs1)] >> shamt);
+            }
+
+            Instruction::Sra { rd, rs1, rs2 } => {
+                let shamt = self.regs[idx(rs2)] & 0x1f;
+                wr(self, rd, ((self.regs[idx(rs1)] as i32) >> shamt) as u32);
+            }
+
+            Instruction::Or { rd, rs1, rs2 } => {
+                wr(self, rd, self.regs[idx(rs1)] | self.regs[idx(rs2)]);
+            }
+
+            Instruction::And { rd, rs1, rs2 } => {
+                wr(self, rd, self.regs[idx(rs1)] & self.regs[idx(rs2)]);
+            }
+
+            // =====================================================
+            // RV32M
+            // =====================================================
+            Instruction::Mul { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)] as i32 as i64;
+                let b = self.regs[idx(rs2)] as i32 as i64;
+                wr(self, rd, a.wrapping_mul(b) as u32);
+            }
+
+            Instruction::Mulh { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)] as i32 as i64;
+                let b = self.regs[idx(rs2)] as i32 as i64;
+                wr(self, rd, ((a.wrapping_mul(b) >> 32) as u64) as u32);
+            }
+
+            Instruction::Mulhsu { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)] as i32 as i64;
+                let b = self.regs[idx(rs2)] as u64 as i64;
+                wr(self, rd, ((a.wrapping_mul(b) >> 32) as u64) as u32);
+            }
+
+            Instruction::Mulhu { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)] as u64;
+                let b = self.regs[idx(rs2)] as u64;
+                wr(self, rd, (a.wrapping_mul(b) >> 32) as u32);
+            }
+
+            Instruction::Div { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)] as i32;
+                let b = self.regs[idx(rs2)] as i32;
+
+                let v = if b == 0 {
+                    u32::MAX
+                } else if a == i32::MIN && b == -1 {
+                    a as u32
+                } else {
+                    (a / b) as u32
+                };
+
+                wr(self, rd, v);
+            }
+
+            Instruction::Divu { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)];
+                let b = self.regs[idx(rs2)];
+                wr(self, rd, a.checked_div(b).unwrap_or(u32::MAX));
+            }
+
+            Instruction::Rem { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)] as i32;
+                let b = self.regs[idx(rs2)] as i32;
+
+                let v = if b == 0 {
+                    a as u32
+                } else if a == i32::MIN && b == -1 {
+                    0
+                } else {
+                    (a % b) as u32
+                };
+
+                wr(self, rd, v);
+            }
+
+            Instruction::Remu { rd, rs1, rs2 } => {
+                let a = self.regs[idx(rs1)];
+                let b = self.regs[idx(rs2)];
+                wr(self, rd, if b == 0 { a } else { a % b });
+            }
+
+            // =====================================================
+            // I TYPE
+            // =====================================================
+            Instruction::Addi { rd, rs1, imm } => {
+                wr(self, rd, self.regs[idx(rs1)].wrapping_add(imm as u32));
+            }
+
+            Instruction::Slti { rd, rs1, imm } => {
+                wr(self, rd, ((self.regs[idx(rs1)] as i32) < imm) as u32);
+            }
+
+            Instruction::Sltiu { rd, rs1, imm } => {
+                wr(self, rd, (self.regs[idx(rs1)] < imm as u32) as u32);
+            }
+
+            Instruction::Xori { rd, rs1, imm } => {
+                wr(self, rd, self.regs[idx(rs1)] ^ (imm as u32));
+            }
+
+            Instruction::Ori { rd, rs1, imm } => {
+                wr(self, rd, self.regs[idx(rs1)] | (imm as u32));
+            }
+
+            Instruction::Andi { rd, rs1, imm } => {
+                wr(self, rd, self.regs[idx(rs1)] & (imm as u32));
+            }
+
+            Instruction::Slli { rd, rs1, shamt } => {
+                wr(self, rd, self.regs[idx(rs1)] << (shamt & 0x1f));
+            }
+
+            Instruction::Srli { rd, rs1, shamt } => {
+                wr(self, rd, self.regs[idx(rs1)] >> (shamt & 0x1f));
+            }
+
+            Instruction::Srai { rd, rs1, shamt } => {
+                wr(
+                    self,
+                    rd,
+                    ((self.regs[idx(rs1)] as i32) >> (shamt & 0x1f)) as u32,
+                );
+            }
+
+            // =====================================================
+            // LOAD
+            // =====================================================
+            Instruction::Lb { rd, rs1, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                wr(self, rd, self.read_u8(addr) as i8 as i32 as u32);
+            }
+
+            Instruction::Lh { rd, rs1, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                wr(self, rd, self.read_u16(addr) as i16 as i32 as u32);
+            }
+
+            Instruction::Lw { rd, rs1, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                wr(self, rd, self.read_u32(addr));
+            }
+
+            Instruction::Lbu { rd, rs1, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                wr(self, rd, self.read_u8(addr) as u32);
+            }
+
+            Instruction::Lhu { rd, rs1, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                wr(self, rd, self.read_u16(addr) as u32);
+            }
+
+            // =====================================================
+            // STORE
+            // =====================================================
+            Instruction::Sb { rs1, rs2, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                self.write_u8(addr, self.regs[idx(rs2)] as u8);
+            }
+
+            Instruction::Sh { rs1, rs2, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                self.write_u16(addr, self.regs[idx(rs2)] as u16);
+            }
+
+            Instruction::Sw { rs1, rs2, imm } => {
+                let addr = self.regs[idx(rs1)].wrapping_add(imm as u32);
+                self.write_u32(addr, self.regs[idx(rs2)]);
+            }
+
+            // =====================================================
+            // BRANCH
+            // =====================================================
+            Instruction::Beq { rs1, rs2, imm } => {
+                if self.regs[idx(rs1)] == self.regs[idx(rs2)] {
+                    return StepResult::Jump((self.pc as i32).wrapping_add(imm) as u32);
+                }
+            }
+
+            Instruction::Bne { rs1, rs2, imm } => {
+                if self.regs[idx(rs1)] != self.regs[idx(rs2)] {
+                    return StepResult::Jump((self.pc as i32).wrapping_add(imm) as u32);
+                }
+            }
+
+            Instruction::Blt { rs1, rs2, imm } => {
+                if (self.regs[idx(rs1)] as i32) < (self.regs[idx(rs2)] as i32) {
+                    return StepResult::Jump((self.pc as i32).wrapping_add(imm) as u32);
+                }
+            }
+
+            Instruction::Bge { rs1, rs2, imm } => {
+                if (self.regs[idx(rs1)] as i32) >= (self.regs[idx(rs2)] as i32) {
+                    return StepResult::Jump((self.pc as i32).wrapping_add(imm) as u32);
+                }
+            }
+
+            Instruction::Bltu { rs1, rs2, imm } => {
+                if self.regs[idx(rs1)] < self.regs[idx(rs2)] {
+                    return StepResult::Jump((self.pc as i32).wrapping_add(imm) as u32);
+                }
+            }
+
+            Instruction::Bgeu { rs1, rs2, imm } => {
+                if self.regs[idx(rs1)] >= self.regs[idx(rs2)] {
+                    return StepResult::Jump((self.pc as i32).wrapping_add(imm) as u32);
+                }
+            }
+
+            // =====================================================
+            // U TYPE
+            // =====================================================
+            Instruction::Lui { rd, imm } => wr(self, rd, imm as u32),
+
+            Instruction::Auipc { rd, imm } => {
+                wr(self, rd, self.pc.wrapping_add(imm as u32));
+            }
+
+            // =====================================================
+            // JUMPS
+            // =====================================================
+            Instruction::Jal { rd, imm } => {
+                wr(self, rd, self.pc.wrapping_add(4));
+                return StepResult::Jump(self.pc.wrapping_add(imm as u32));
+            }
+
+            Instruction::Jalr { rd, rs1, imm } => {
+                wr(self, rd, self.pc.wrapping_add(4));
+                return StepResult::Jump(self.regs[idx(rs1)].wrapping_add(imm as u32) & !1);
+            }
+
+            // =====================================================
+            // FENCE
+            // =====================================================
+            Instruction::Fence => {}
+            Instruction::FenceI => {}
+
+            // =====================================================
+            // SYSTEM
+            // =====================================================
+            Instruction::Ecall => {
+                let syscall = self.regs[17];
+
+                match syscall {
+                    0 => {
+                        self.trap(11);
+                        return StepResult::Jump(self.pc);
+                    }
+
+                    93 => {
+                        self.exit_code = self.regs[10] as i32;
+                        return StepResult::Halt;
+                    }
+
+                    _ => panic!("unsupported syscall {}", syscall),
+                }
+            }
+
+            Instruction::Ebreak => {
+                return StepResult::Halt;
+            }
+
+            Instruction::Mret => {
+                let mepc = self.csr_read(MEPC as u16);
+                let mut mstatus = self.csr_read(MSTATUS as u16);
+
+                let mpie = (mstatus & MSTATUS_MPIE) != 0;
+
+                if mpie {
+                    mstatus |= MSTATUS_MIE;
+                } else {
+                    mstatus &= !MSTATUS_MIE;
+                }
+
+                mstatus |= MSTATUS_MPIE;
+                mstatus &= !MSTATUS_MPP_MASK;
+
+                self.csr_write(MSTATUS as u16, mstatus);
+                self.csr_write(MCAUSE as u16, 0);
+
+                return StepResult::Jump(mepc);
+            }
+
+            Instruction::Wfi => {
+                if self.mtimecmp > self.mtime {
+                    self.mtime = self.mtimecmp.saturating_sub(1);
+                }
+
+                return StepResult::Next;
+            }
+
+            // =====================================================
+            // CSR
+            // =====================================================
+            Instruction::Csrrw { rd, rs1, csr } => {
+                let old = self.csr_read(csr);
+                self.csr_write(csr, self.regs[idx(rs1)]);
+                wr(self, rd, old);
+            }
+
+            Instruction::Csrrs { rd, rs1, csr } => {
+                let old = self.csr_read(csr);
+                let val = self.regs[idx(rs1)];
+
+                if val != 0 {
+                    self.csr_write(csr, old | val);
+                }
+
+                wr(self, rd, old);
+            }
+
+            Instruction::Csrrc { rd, rs1, csr } => {
+                let old = self.csr_read(csr);
+                let val = self.regs[idx(rs1)];
+
+                if val != 0 {
+                    self.csr_write(csr, old & !val);
+                }
+
+                wr(self, rd, old);
+            }
+
+            Instruction::Csrrwi { rd, zimm, csr } => {
+                let old = self.csr_read(csr);
+                self.csr_write(csr, zimm as u32);
+                wr(self, rd, old);
+            }
+
+            Instruction::Csrrsi { rd, zimm, csr } => {
+                let old = self.csr_read(csr);
+
+                if zimm != 0 {
+                    self.csr_write(csr, old | zimm as u32);
+                }
+
+                wr(self, rd, old);
+            }
+
+            Instruction::Csrrci { rd, zimm, csr } => {
+                let old = self.csr_read(csr);
+
+                if zimm != 0 {
+                    self.csr_write(csr, old & !(zimm as u32));
+                }
+
+                wr(self, rd, old);
+            }
+        }
+
+        StepResult::Next
+    }
+
+    pub fn step(&mut self) {
+        self.tick();
+        let raw = self.fetch();
+        let inst = self.decode(raw);
+
+        match self.execute(inst) {
+            StepResult::Next => self.pc = self.pc.wrapping_add(4),
+            StepResult::Jump(addr) => self.pc = addr,
+            StepResult::Halt => self.running = false,
+        }
+
+        self.regs[0] = 0;
+    }
+}
+
+pub enum StepResult {
+    Next,      // pc += 4
+    Jump(u32), // pc = destino
+    Halt,      // parar execução
+}
+
+use std::fmt;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Instruction {
+    Add { rd: u8, rs1: u8, rs2: u8 },
+    Sub { rd: u8, rs1: u8, rs2: u8 },
+    Sll { rd: u8, rs1: u8, rs2: u8 },
+    Slt { rd: u8, rs1: u8, rs2: u8 },
+    Sltu { rd: u8, rs1: u8, rs2: u8 },
+    Xor { rd: u8, rs1: u8, rs2: u8 },
+    Srl { rd: u8, rs1: u8, rs2: u8 },
+    Sra { rd: u8, rs1: u8, rs2: u8 },
+    Or { rd: u8, rs1: u8, rs2: u8 },
+    And { rd: u8, rs1: u8, rs2: u8 },
+    Addi { rd: u8, rs1: u8, imm: i32 },
+    Slti { rd: u8, rs1: u8, imm: i32 },
+    Sltiu { rd: u8, rs1: u8, imm: i32 },
+    Xori { rd: u8, rs1: u8, imm: i32 },
+    Ori { rd: u8, rs1: u8, imm: i32 },
+    Andi { rd: u8, rs1: u8, imm: i32 },
+    Slli { rd: u8, rs1: u8, shamt: u8 },
+    Srli { rd: u8, rs1: u8, shamt: u8 },
+    Srai { rd: u8, rs1: u8, shamt: u8 },
+    Lb { rd: u8, rs1: u8, imm: i32 },
+    Lh { rd: u8, rs1: u8, imm: i32 },
+    Lw { rd: u8, rs1: u8, imm: i32 },
+    Lbu { rd: u8, rs1: u8, imm: i32 },
+    Lhu { rd: u8, rs1: u8, imm: i32 },
+    Sb { rs1: u8, rs2: u8, imm: i32 },
+    Sh { rs1: u8, rs2: u8, imm: i32 },
+    Sw { rs1: u8, rs2: u8, imm: i32 },
+    Beq { rs1: u8, rs2: u8, imm: i32 },
+    Bne { rs1: u8, rs2: u8, imm: i32 },
+    Blt { rs1: u8, rs2: u8, imm: i32 },
+    Bge { rs1: u8, rs2: u8, imm: i32 },
+    Bltu { rs1: u8, rs2: u8, imm: i32 },
+    Bgeu { rs1: u8, rs2: u8, imm: i32 },
+    Lui { rd: u8, imm: i32 },
+    Auipc { rd: u8, imm: i32 },
+    Jal { rd: u8, imm: i32 },
+    Jalr { rd: u8, rs1: u8, imm: i32 },
+    Ecall,
+    Ebreak,
+    Csrrw { rd: u8, rs1: u8, csr: u16 },
+    Csrrs { rd: u8, rs1: u8, csr: u16 },
+    Csrrc { rd: u8, rs1: u8, csr: u16 },
+    Csrrwi { rd: u8, zimm: u8, csr: u16 },
+    Csrrsi { rd: u8, zimm: u8, csr: u16 },
+    Csrrci { rd: u8, zimm: u8, csr: u16 },
+    Mret,
+    Fence,
+    FenceI,
+    Mul { rd: u8, rs1: u8, rs2: u8 },
+    Mulh { rd: u8, rs1: u8, rs2: u8 },
+    Mulhsu { rd: u8, rs1: u8, rs2: u8 },
+    Mulhu { rd: u8, rs1: u8, rs2: u8 },
+    Div { rd: u8, rs1: u8, rs2: u8 },
+    Divu { rd: u8, rs1: u8, rs2: u8 },
+    Rem { rd: u8, rs1: u8, rs2: u8 },
+    Remu { rd: u8, rs1: u8, rs2: u8 },
+    Wfi,
+}
+
+impl Instruction {
+    fn fmt_asm(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Instruction::*;
+
+        match *self {
+            // =========================
+            // R-type
+            // =========================
+            Add { rd, rs1, rs2 } => r(f, "add", rd, rs1, rs2),
+            Sub { rd, rs1, rs2 } => r(f, "sub", rd, rs1, rs2),
+            Sll { rd, rs1, rs2 } => r(f, "sll", rd, rs1, rs2),
+            Slt { rd, rs1, rs2 } => r(f, "slt", rd, rs1, rs2),
+            Sltu { rd, rs1, rs2 } => r(f, "sltu", rd, rs1, rs2),
+            Xor { rd, rs1, rs2 } => r(f, "xor", rd, rs1, rs2),
+            Srl { rd, rs1, rs2 } => r(f, "srl", rd, rs1, rs2),
+            Sra { rd, rs1, rs2 } => r(f, "sra", rd, rs1, rs2),
+            Or { rd, rs1, rs2 } => r(f, "or", rd, rs1, rs2),
+            And { rd, rs1, rs2 } => r(f, "and", rd, rs1, rs2),
+
+            // =========================
+            // RV32M
+            // =========================
+            Mul { rd, rs1, rs2 } => r(f, "mul", rd, rs1, rs2),
+            Mulh { rd, rs1, rs2 } => r(f, "mulh", rd, rs1, rs2),
+            Mulhsu { rd, rs1, rs2 } => r(f, "mulhsu", rd, rs1, rs2),
+            Mulhu { rd, rs1, rs2 } => r(f, "mulhu", rd, rs1, rs2),
+            Div { rd, rs1, rs2 } => r(f, "div", rd, rs1, rs2),
+            Divu { rd, rs1, rs2 } => r(f, "divu", rd, rs1, rs2),
+            Rem { rd, rs1, rs2 } => r(f, "rem", rd, rs1, rs2),
+            Remu { rd, rs1, rs2 } => r(f, "remu", rd, rs1, rs2),
+
+            // =========================
+            // I-type ALU
+            // =========================
+            Addi { rd, rs1, imm } => i(f, "addi", rd, rs1, imm),
+            Slti { rd, rs1, imm } => i(f, "slti", rd, rs1, imm),
+            Sltiu { rd, rs1, imm } => i(f, "sltiu", rd, rs1, imm),
+            Xori { rd, rs1, imm } => i(f, "xori", rd, rs1, imm),
+            Ori { rd, rs1, imm } => i(f, "ori", rd, rs1, imm),
+            Andi { rd, rs1, imm } => i(f, "andi", rd, rs1, imm),
+
+            Slli { rd, rs1, shamt } => ish(f, "slli", rd, rs1, shamt),
+            Srli { rd, rs1, shamt } => ish(f, "srli", rd, rs1, shamt),
+            Srai { rd, rs1, shamt } => ish(f, "srai", rd, rs1, shamt),
+
+            // =========================
+            // Loads
+            // =========================
+            Lb { rd, rs1, imm } => load(f, "lb", rd, rs1, imm),
+            Lh { rd, rs1, imm } => load(f, "lh", rd, rs1, imm),
+            Lw { rd, rs1, imm } => load(f, "lw", rd, rs1, imm),
+            Lbu { rd, rs1, imm } => load(f, "lbu", rd, rs1, imm),
+            Lhu { rd, rs1, imm } => load(f, "lhu", rd, rs1, imm),
+
+            // =========================
+            // Stores
+            // =========================
+            Sb { rs1, rs2, imm } => store(f, "sb", rs1, rs2, imm),
+            Sh { rs1, rs2, imm } => store(f, "sh", rs1, rs2, imm),
+            Sw { rs1, rs2, imm } => store(f, "sw", rs1, rs2, imm),
+
+            // =========================
+            // Branches
+            // =========================
+            Beq { rs1, rs2, imm } => branch(f, "beq", rs1, rs2, imm),
+            Bne { rs1, rs2, imm } => branch(f, "bne", rs1, rs2, imm),
+            Blt { rs1, rs2, imm } => branch(f, "blt", rs1, rs2, imm),
+            Bge { rs1, rs2, imm } => branch(f, "bge", rs1, rs2, imm),
+            Bltu { rs1, rs2, imm } => branch(f, "bltu", rs1, rs2, imm),
+            Bgeu { rs1, rs2, imm } => branch(f, "bgeu", rs1, rs2, imm),
+
+            // =========================
+            // U-type
+            // =========================
+            Lui { rd, imm } => u(f, "lui", rd, imm),
+            Auipc { rd, imm } => u(f, "auipc", rd, imm),
+
+            // =========================
+            // Jumps
+            // =========================
+            Jal { rd, imm } => u(f, "jal", rd, imm),
+            Jalr { rd, rs1, imm } => jalr(f, rd, rs1, imm),
+
+            // =========================
+            // System / CSR
+            // =========================
+            Ecall => f.write_str("ecall"),
+            Ebreak => f.write_str("ebreak"),
+            Csrrs { rd, rs1, csr } => csr_r(f, "csrrs", rd, rs1, csr),
+            Csrrc { rd, rs1, csr } => csr_r(f, "csrrc", rd, rs1, csr),
+            Csrrw { rd, rs1, csr } => csr_r(f, "csrrw", rd, rs1, csr),
+            Csrrsi { rd, zimm, csr } => csr_i(f, "csrrsi", rd, zimm, csr),
+            Csrrci { rd, zimm, csr } => csr_i(f, "csrrci", rd, zimm, csr),
+            Csrrwi { rd, zimm, csr } => csr_i(f, "csrrwi", rd, zimm, csr),
+            Mret => write!(f, "mret"),
+            Wfi => f.write_str("wfi"),
+
+            // =========================
+            // Fence
+            // =========================
+            Fence => f.write_str("fence"),
+            FenceI => f.write_str("fence.i"),
+        }
+    }
+}
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_asm(f)
+    }
+}
+
+// helpers
+#[inline(always)]
+fn r(f: &mut fmt::Formatter<'_>, op: &str, rd: u8, rs1: u8, rs2: u8) -> fmt::Result {
+    write!(f, "{op} x{rd}, x{rs1}, x{rs2}")
+}
+
+#[inline(always)]
+fn i(f: &mut fmt::Formatter<'_>, op: &str, rd: u8, rs1: u8, imm: i32) -> fmt::Result {
+    write!(f, "{op} x{rd}, x{rs1}, {imm}")
+}
+
+#[inline(always)]
+fn ish(f: &mut fmt::Formatter<'_>, op: &str, rd: u8, rs1: u8, shamt: u8) -> fmt::Result {
+    write!(f, "{op} x{rd}, x{rs1}, {shamt}")
+}
+
+#[inline(always)]
+fn load(f: &mut fmt::Formatter<'_>, op: &str, rd: u8, base: u8, off: i32) -> fmt::Result {
+    write!(f, "{op} x{rd}, {off}(x{base})")
+}
+
+#[inline(always)]
+fn store(f: &mut fmt::Formatter<'_>, op: &str, base: u8, src: u8, off: i32) -> fmt::Result {
+    write!(f, "{op} x{src}, {off}(x{base})")
+}
+
+#[inline(always)]
+fn branch(f: &mut fmt::Formatter<'_>, op: &str, rs1: u8, rs2: u8, off: i32) -> fmt::Result {
+    write!(f, "{op} x{rs1}, x{rs2}, {off}")
+}
+
+#[inline(always)]
+fn u(f: &mut fmt::Formatter<'_>, op: &str, rd: u8, imm: i32) -> fmt::Result {
+    write!(f, "{op} x{rd}, {imm}")
+}
+
+#[inline(always)]
+fn jalr(f: &mut fmt::Formatter<'_>, rd: u8, rs1: u8, imm: i32) -> fmt::Result {
+    write!(f, "jalr x{rd}, {imm}(x{rs1})")
+}
+
+fn csr_r(f: &mut fmt::Formatter<'_>, name: &str, rd: u8, rs1: u8, csr: u16) -> fmt::Result {
+    write!(f, "{} x{}, x{}, 0x{:x}", name, rd, rs1, csr)
+}
+
+fn csr_i(f: &mut fmt::Formatter<'_>, name: &str, rd: u8, zimm: u8, csr: u16) -> fmt::Result {
+    write!(f, "{} x{}, {}, 0x{:x}", name, rd, zimm, csr)
 }
 
 // ================== ELF STUFF ===================================
