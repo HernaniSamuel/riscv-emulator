@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt;
 use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -155,108 +156,6 @@ impl CPU {
         }
     }
 
-    pub fn csr_read(&self, addr: u16) -> u32 {
-        self.csr[addr as usize]
-    }
-
-    pub fn csr_write(&mut self, addr: u16, val: u32) {
-        self.csr[addr as usize] = val;
-    }
-
-    pub fn trap(&mut self, cause: u32) {
-        let mtvec = self.csr_read(MTVEC as u16);
-        let handler = mtvec & !0b11;
-
-        if handler == 0 {
-            println!("mtvec = 0, trap ignorado");
-            return;
-        }
-
-        if self.timer_pending {
-            let mstatus = self.csr_read(MSTATUS as u16);
-            let mie = self.csr_read(MIE_CSR as u16);
-            if (mstatus & MSTATUS_MIE) != 0 && (mie & MIE_MTIE) != 0 {
-                self.timer_pending = false;
-
-                self.trap(0x8000_0007);
-            }
-        }
-
-        self.csr_write(MEPC as u16, self.pc);
-
-        self.csr_write(MCAUSE as u16, cause);
-
-        let mut mstatus = self.csr_read(MSTATUS as u16);
-        let mie_bit = (mstatus & MSTATUS_MIE) != 0;
-
-        mstatus &= !MSTATUS_MIE;
-
-        if mie_bit {
-            mstatus |= MSTATUS_MPIE;
-        } else {
-            mstatus &= !MSTATUS_MPIE;
-        }
-
-        mstatus = (mstatus & !MSTATUS_MPP_MASK) | (0b11 << 11);
-
-        self.csr_write(MSTATUS as u16, mstatus);
-
-        self.pc = handler;
-    }
-
-    pub fn tick(&mut self) {
-        self.mtime = self.mtime.wrapping_add(1);
-
-        if self.mtimecmp != 0 && self.mtime >= self.mtimecmp {
-            self.timer_pending = true;
-        }
-
-        if self.timer_pending {
-            let mstatus = self.csr_read(MSTATUS as u16);
-            let mie = self.csr_read(MIE_CSR as u16);
-            if (mstatus & MSTATUS_MIE) != 0 && (mie & MIE_MTIE) != 0 {
-                self.timer_pending = false;
-                self.trap(0x8000_0007);
-            }
-        }
-    }
-
-    pub fn load_elf(&mut self, elf: &ElfImage) -> Result<(), RiscVError> {
-        self.pc = elf.entry;
-        for seg in &elf.segments {
-            println!(
-                "segmento: vaddr=0x{:08X} filesz={} memsz={}",
-                seg.vaddr,
-                seg.data.len(),
-                seg.mem_size
-            );
-
-            if (seg.vaddr as usize) < RAM_BASE {
-                println!("  -> ignorado (fora da RAM)");
-                continue;
-            }
-
-            let start = to_ram_index(seg.vaddr);
-            let end = start + seg.data.len();
-
-            if end > self.memory.len() {
-                println!(
-                    "  -> fora dos limites! start={} end={} mem={}",
-                    start,
-                    end,
-                    self.memory.len()
-                );
-                return Err(RiscVError::InvalidProgramHeader);
-            }
-
-            self.memory[start..end].copy_from_slice(&seg.data);
-            for i in end..(start + seg.mem_size as usize) {
-                self.memory[i] = 0;
-            }
-        }
-        Ok(())
-    }
-
     fn uart_read(&self, addr: u32) -> u32 {
         match addr {
             UART_LSR => TX_READY as u32,
@@ -386,6 +285,94 @@ impl CPU {
 
             self.memory[a..a + 4].copy_from_slice(&val.to_le_bytes());
         }
+    }
+
+    pub fn csr_read(&self, addr: u16) -> u32 {
+        self.csr[addr as usize]
+    }
+
+    pub fn csr_write(&mut self, addr: u16, val: u32) {
+        self.csr[addr as usize] = val;
+    }
+
+    pub fn trap(&mut self, cause: u32) {
+        let mtvec = self.csr_read(MTVEC as u16);
+        let handler = mtvec & !0b11;
+
+        if handler == 0 {
+            println!("mtvec = 0, trap ignorado");
+            return;
+        }
+
+        self.csr_write(MEPC as u16, self.pc);
+        self.csr_write(MCAUSE as u16, cause);
+
+        let mut mstatus = self.csr_read(MSTATUS as u16);
+        let mie_bit = (mstatus & MSTATUS_MIE) != 0;
+
+        mstatus &= !MSTATUS_MIE;
+        if mie_bit {
+            mstatus |= MSTATUS_MPIE;
+        } else {
+            mstatus &= !MSTATUS_MPIE;
+        }
+        mstatus = (mstatus & !MSTATUS_MPP_MASK) | (0b11 << 11);
+
+        self.csr_write(MSTATUS as u16, mstatus);
+        self.pc = handler;
+    }
+
+    pub fn tick(&mut self) {
+        self.mtime = self.mtime.wrapping_add(1);
+
+        if self.mtimecmp != 0 && self.mtime >= self.mtimecmp {
+            self.timer_pending = true;
+        }
+
+        if self.timer_pending {
+            let mstatus = self.csr_read(MSTATUS as u16);
+            let mie = self.csr_read(MIE_CSR as u16);
+            if (mstatus & MSTATUS_MIE) != 0 && (mie & MIE_MTIE) != 0 {
+                self.timer_pending = false;
+                self.trap(0x8000_0007);
+            }
+        }
+    }
+
+    pub fn load_elf(&mut self, elf: &ElfImage) -> Result<(), RiscVError> {
+        self.pc = elf.entry;
+        for seg in &elf.segments {
+            println!(
+                "segmento: vaddr=0x{:08X} filesz={} memsz={}",
+                seg.vaddr,
+                seg.data.len(),
+                seg.mem_size
+            );
+
+            if (seg.vaddr as usize) < RAM_BASE {
+                println!("  -> ignorado (fora da RAM)");
+                continue;
+            }
+
+            let start = to_ram_index(seg.vaddr);
+            let end = start + seg.data.len();
+
+            if end > self.memory.len() {
+                println!(
+                    "  -> fora dos limites! start={} end={} mem={}",
+                    start,
+                    end,
+                    self.memory.len()
+                );
+                return Err(RiscVError::InvalidProgramHeader);
+            }
+
+            self.memory[start..end].copy_from_slice(&seg.data);
+            for i in end..(start + seg.mem_size as usize) {
+                self.memory[i] = 0;
+            }
+        }
+        Ok(())
     }
 
     pub fn fetch(&self) -> u32 {
@@ -1060,7 +1047,21 @@ impl CPU {
     }
 
     pub fn step(&mut self) {
-        self.tick();
+        self.tick(); // já seta timer_pending se necessário
+
+        // checa interrupção ANTES de fetch/decode/execute
+        // (timer tem prioridade se MIE está habilitado)
+        if self.timer_pending {
+            let mstatus = self.csr_read(MSTATUS as u16);
+            let mie = self.csr_read(MIE_CSR as u16);
+            if (mstatus & MSTATUS_MIE) != 0 && (mie & MIE_MTIE) != 0 {
+                self.timer_pending = false;
+                self.trap(0x8000_0007);
+                self.regs[0] = 0;
+                return; // não executa a instrução atual, já tá no handler
+            }
+        }
+
         let raw = self.fetch();
         let inst = self.decode(raw);
 
@@ -1080,7 +1081,6 @@ pub enum StepResult {
     Halt,      // parar execução
 }
 
-use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     Add { rd: u8, rs1: u8, rs2: u8 },
