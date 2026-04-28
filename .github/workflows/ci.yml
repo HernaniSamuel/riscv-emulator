@@ -67,7 +67,6 @@ jobs:
   docs:
     name: Docs
     runs-on: ubuntu-latest
-    # Só faz deploy em push na main; em PRs só valida que a doc compila
     if: github.event_name == 'push'
     needs: [fmt, clippy, test]
     permissions:
@@ -89,9 +88,11 @@ jobs:
       - name: cargo doc
         run: cargo doc --no-deps
 
-      # Prevents GitHub Pages from attempting to process the doc with Jekyll
       - name: Add .nojekyll
         run: touch target/doc/.nojekyll
+
+      - name: Add index redirect
+        run: echo '<meta http-equiv="refresh" content="0; url=riscv/index.html">' > target/doc/index.html
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4

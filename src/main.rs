@@ -345,18 +345,6 @@ pub struct CPU {
     /// is set. Software clears a pending interrupt by writing a future deadline
     /// to this register.
     pub mtimecmp: u64,
-
-    /// Running total of traps (exceptions and interrupts) taken since reset.
-    ///
-    /// Incremented inside [`CPU::trap`] and available for diagnostic use.
-    /// Not architecturally significant.
-    pub trap_count: u64,
-
-    /// Step counter available for tracing and debugging.
-    ///
-    /// Not incremented automatically; reserved for the caller or future
-    /// instrumentation.
-    pub step_log: u64,
 }
 
 impl CPU {
@@ -377,8 +365,6 @@ impl CPU {
             running: false,
             exit_code: 1000,
             timer_pending: false,
-            trap_count: 0,
-            step_log: 0,
         }
     }
 
@@ -641,7 +627,7 @@ impl CPU {
         let handler = mtvec & !0b11;
 
         if handler == 0 {
-            println!("mtvec = 0, trap ignorado");
+            println!("mtvec = 0, trap ignored");
             return;
         }
 
@@ -1039,7 +1025,7 @@ impl CPU {
     /// # Returns
     ///
     /// - [`StepResult::Next`] – the caller should advance `pc` by 4.
-    /// - [`StepResult::Jump(addr)`] – the caller should set `pc` to `addr`.
+    /// - [`StepResult::Jump`] – the caller should set `pc` to `addr`.
     /// - [`StepResult::Halt`] – the caller should stop the execution loop.
     ///
     /// # Panics
@@ -1540,7 +1526,6 @@ pub enum StepResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     // ── R-type ────────────────────────────────────────────────────────────────
-
     /// `ADD rd, rs1, rs2` – wrapping integer addition.
     Add { rd: u8, rs1: u8, rs2: u8 },
     /// `SUB rd, rs1, rs2` – wrapping integer subtraction.
@@ -1564,7 +1549,6 @@ pub enum Instruction {
     And { rd: u8, rs1: u8, rs2: u8 },
 
     // ── I-type ALU ────────────────────────────────────────────────────────────
-
     /// `ADDI rd, rs1, imm` – wrapping addition with a 12-bit sign-extended
     /// immediate. The canonical `NOP` is encoded as `ADDI x0, x0, 0`.
     Addi { rd: u8, rs1: u8, imm: i32 },
@@ -1589,7 +1573,6 @@ pub enum Instruction {
     Srai { rd: u8, rs1: u8, shamt: u8 },
 
     // ── Loads ─────────────────────────────────────────────────────────────────
-
     /// `LB rd, imm(rs1)` – load byte, sign-extended to 32 bits.
     Lb { rd: u8, rs1: u8, imm: i32 },
     /// `LH rd, imm(rs1)` – load halfword (16-bit), sign-extended to 32 bits.
@@ -1602,7 +1585,6 @@ pub enum Instruction {
     Lhu { rd: u8, rs1: u8, imm: i32 },
 
     // ── Stores ────────────────────────────────────────────────────────────────
-
     /// `SB rs2, imm(rs1)` – store the low byte of `rs2`.
     Sb { rs1: u8, rs2: u8, imm: i32 },
     /// `SH rs2, imm(rs1)` – store the low halfword (16 bits) of `rs2`.
@@ -1611,7 +1593,6 @@ pub enum Instruction {
     Sw { rs1: u8, rs2: u8, imm: i32 },
 
     // ── Branches ──────────────────────────────────────────────────────────────
-
     /// `BEQ rs1, rs2, imm` – branch if `rs1 == rs2`; target is `pc + imm`.
     Beq { rs1: u8, rs2: u8, imm: i32 },
     /// `BNE rs1, rs2, imm` – branch if `rs1 != rs2`.
@@ -1626,7 +1607,6 @@ pub enum Instruction {
     Bgeu { rs1: u8, rs2: u8, imm: i32 },
 
     // ── U-type ────────────────────────────────────────────────────────────────
-
     /// `LUI rd, imm` – loads a 20-bit upper immediate into `rd[31:12]`,
     /// zeroing the low 12 bits.
     Lui { rd: u8, imm: i32 },
@@ -1635,7 +1615,6 @@ pub enum Instruction {
     Auipc { rd: u8, imm: i32 },
 
     // ── Jumps ─────────────────────────────────────────────────────────────────
-
     /// `JAL rd, imm` – unconditional jump to `pc + imm`; saves `pc + 4` in
     /// `rd` as the return address. `imm` is a 21-bit sign-extended offset.
     Jal { rd: u8, imm: i32 },
@@ -1644,7 +1623,6 @@ pub enum Instruction {
     Jalr { rd: u8, rs1: u8, imm: i32 },
 
     // ── System ────────────────────────────────────────────────────────────────
-
     /// `ECALL` – environment call. The emulator dispatches on `a7` (x17):
     /// `0` delivers a trap with cause 11; `93` halts with the exit code in
     /// `a0` (x10).
@@ -1654,7 +1632,6 @@ pub enum Instruction {
     Ebreak,
 
     // ── CSR instructions ──────────────────────────────────────────────────────
-
     /// `CSRRW rd, csr, rs1` – atomically reads `csr` into `rd` and writes
     /// `rs1` to `csr`.
     Csrrw { rd: u8, rs1: u8, csr: u16 },
@@ -1675,13 +1652,11 @@ pub enum Instruction {
     Csrrci { rd: u8, zimm: u8, csr: u16 },
 
     // ── Privileged ────────────────────────────────────────────────────────────
-
     /// `MRET` – return from machine-mode trap. Restores `pc` from `mepc` and
     /// `mstatus.MIE` from `mstatus.MPIE`.
     Mret,
 
     // ── Fence ─────────────────────────────────────────────────────────────────
-
     /// `FENCE` – memory ordering fence. Treated as a no-op in this
     /// single-cycle, single-hart emulator.
     Fence,
@@ -1690,7 +1665,6 @@ pub enum Instruction {
     FenceI,
 
     // ── RV32M ─────────────────────────────────────────────────────────────────
-
     /// `MUL rd, rs1, rs2` – lower 32 bits of the signed×signed product.
     Mul { rd: u8, rs1: u8, rs2: u8 },
     /// `MULH rd, rs1, rs2` – upper 32 bits of the signed×signed 64-bit product.

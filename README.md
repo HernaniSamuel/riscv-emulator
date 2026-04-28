@@ -133,16 +133,17 @@ The emulator will boot FreeRTOS, which will drive the task scheduler via CLINT t
 
 The emulator is structured around a single `CPU` struct that encodes the complete processor state:
 
-| Field          | Description                                               |
-|----------------|-----------------------------------------------------------|
-| `regs[32]`     | General-purpose integer registers (`x0`–`x31`)           |
-| `pc`           | Program counter                                           |
-| `memory`       | Flat DRAM backing store (32 MiB `Vec<u8>`)                |
-| `csr[4096]`    | Full CSR file, indexed by 12-bit address                  |
-| `mtime`        | 64-bit CLINT timer counter                                |
-| `mtimecmp`     | 64-bit CLINT timer compare register                       |
-| `timer_pending`| Latched timer interrupt flag                              |
-| `trap_count`   | Diagnostic trap counter                                   |
+| Field            | Description                                              |
+|------------------|----------------------------------------------------------|
+| `regs[32]`       | General-purpose integer registers (`x0`–`x31`)           |
+| `pc`             | Program counter                                          |
+| `memory`         | Flat DRAM backing store (32 MiB by default)              |
+| `csr[4096]`      | Full CSR file, indexed by 12-bit address                 |
+| `mtime`          | 64-bit CLINT timer counter                               |
+| `mtimecmp`       | 64-bit CLINT timer compare register                      |
+| `running`        | Indicates whether the emulator is currently executing    |
+| `exit_code`      | Program termination status returned on exit              |
+| `timer_pending`  | Latched machine timer interrupt flag                     |
 
 The execution model follows a strict **fetch → decode → execute** pipeline via `CPU::step`. Before every fetch, pending timer interrupts are checked so that an interrupt can preempt any instruction boundary — the same behaviour required by the FreeRTOS tick handler.
 
