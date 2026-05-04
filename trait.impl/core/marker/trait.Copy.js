@@ -1,9 +1,9 @@
 (function() {
-    const implementors = Object.fromEntries([["riscv",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"riscv/enum.Instruction.html\" title=\"enum riscv::Instruction\">Instruction</a>",0]]]]);
+    const implementors = Object.fromEntries([["riscv_emulator",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"riscv_emulator/cpu/enum.StepResult.html\" title=\"enum riscv_emulator::cpu::StepResult\">StepResult</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"riscv_emulator/cpu/enum.Trap.html\" title=\"enum riscv_emulator::cpu::Trap\">Trap</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"riscv_emulator/elf/enum.SymbolKind.html\" title=\"enum riscv_emulator::elf::SymbolKind\">SymbolKind</a>",0]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":59,"fragment_lengths":[264]}
+//{"start":59,"fragment_lengths":[833]}

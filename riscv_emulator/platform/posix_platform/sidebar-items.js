@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"static":["IS_EOFD","SIGINT_FIRED"],"struct":["PosixPlatform"]};
