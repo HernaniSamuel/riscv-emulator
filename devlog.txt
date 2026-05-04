@@ -414,3 +414,15 @@ Actually, I'm thinking about adding more CLI tools for this emulator (so clap mi
 
 Then this emulator will be finished in style!
 
+Day 35 - 04/05/2026
+So I found a nice project under MIT licence and started to modify its C code to be able to port it to rust and keep improving it
+The project by CNLohr is a RV32IMA emulator running Linux no-mmu, so I used Claude to refactor the code in a way that it keeps running linux
+Then I successfully ported it to rust and merged with this emulator features to be able to run Linux and FreeRTOS
+But I feel I lost some cool stuff like the decode and execute division, now everything is on step and instructions are in the same place as the decode...
+R.I.P. Instruction enum, I miss you! But you are too verbose and that documentation instruction by instruction were kinda useless...
+I made this, I made a RISC-V RV32IMA emulator in rust that can run the Linux Kernel (no-mmu like uclinux) and FreeRTOS! It also runs any RV32 bare metal ELF
+My portfolio now have a linux kernel running as a demo and I'm too proud of what I built here (based on the CNLohr's C project)
+The commit HUGE diff is because I developped this refactor & port on another repository and copied the code for this one (the original)
+This project is an absolute success! Finally everything is working well!
+
+I loved developping this project! I love systems!

@@ -1,175 +1,180 @@
 # riscv-emulator
+A RISC-V RV32IMA emulator written in Rust, capable of running a real Linux kernel and FreeRTOS. Compiles to WebAssembly for in-browser execution.
 
-[![Docs](https://img.shields.io/badge/docs-rustdoc-blue)](https://hernanisamuel.github.io/riscv-emulator/riscv/index.html)
-
-A single-file, cycle-accurate **RV32IM** emulator written in Rust. Loads and executes ELF binaries bare-metal, with full machine-mode privilege support, a CLINT timer, and an NS16550-compatible UART — capable of running real operating systems such as **FreeRTOS**.
-
-![FreeRTOS running on the emulator](assets/demo.png)
-*Left: riscv-emulator. Right: QEMU. Identical output.*
+**[▶ Live Demo — Linux running in your browser](https://hernanisamuel.github.io/meu_portfolio/)**  
+**[📖 API Documentation](https://hernanisamuel.github.io/riscv-emulator/riscv_emulator/index.html)**
 
 ---
 
 ## Features
 
-- **Complete RV32I base ISA** — all integer instructions, all load/store widths (`LB`, `LH`, `LW`, `LBU`, `LHU`), branches, `JAL`/`JALR`, `LUI`/`AUIPC`, `FENCE`, `ECALL`, `EBREAK`.
-- **RV32M extension** — full multiply/divide suite: `MUL`, `MULH`, `MULHSU`, `MULHU`, `DIV`, `DIVU`, `REM`, `REMU`.
-- **Machine-mode privileged architecture** — `mret`, `wfi`, vectored trap delivery, and the full set of M-mode CSRs: `mstatus`, `mie`, `mtvec`, `mepc`, `mcause`.
-- **CLINT** — 64-bit `mtime`/`mtimecmp` timer with correct machine timer interrupt (`mcause = 0x8000_0007`) delivery, gated by `mstatus.MIE` and `mie.MTIE`.
-- **NS16550-compatible UART** — byte-granular TX forwarded to stdout in real time; LSR always reports TX-ready so drivers never spin-wait.
-- **ELF32 loader** — parses program headers, copies `PT_LOAD` segments, zero-fills BSS, and sets the entry point automatically.
-- **32 MiB DRAM** — sufficient for FreeRTOS images with typical heap and stack requirements.
-- **Zero external dependencies** — the entire emulator is a single `main.rs` using only the Rust standard library.
+- Full **RV32IMA** ISA — base integer, multiply/divide, atomics
+- Machine-mode privileged spec: traps, CSRs, MRET, WFI, ECALL
+- **CLINT** timer with accurate `mtime`/`mtimecmp` (fires real timer interrupts)
+- **UART 16550** compatible console
+- Boots a real **Linux 6.1.14** kernel (uClinux/nommu, Buildroot rootfs)
+- Boots **FreeRTOS** bare-metal ELF images
+- **ELF loader** with symbol table — bare-metal programs run directly
+- **Disassembler** — objdump-compatible output with ABI register names and pseudoinstructions
+- **Execution tracer** — compact per-instruction log with register diff
+- **Single-step mode** — full register dump with change highlighting after each instruction
+- **WebAssembly target** — kernel embedded at compile time, runs in any modern browser
 
 ---
 
-## Highlight: Running FreeRTOS
+## Quick start
 
-This emulator successfully boots and runs **FreeRTOS** on RISC-V — a fully preemptive, real-time operating system. The timer interrupt infrastructure (CLINT `mtime`/`mtimecmp`, vectored trap delivery, `mret`-based context restore) is implemented faithfully enough to drive the FreeRTOS tick scheduler without modification.
+### Prerequisites
 
-A ready-to-use FreeRTOS test image targeting this emulator is available at:
+- [Rust](https://rustup.rs/) 1.91+
+- A kernel image (see [Credits](#credits) for the Linux image source)
 
-> **[https://github.com/HernaniSamuel/freertos-riscv-test](https://github.com/HernaniSamuel/freertos-riscv-test)**
+### Build
 
----
-
-## Memory Map
-
-| Region | Base Address   | Size    | Description                              |
-|--------|---------------|---------|------------------------------------------|
-| UART   | `0x1000_0000` | 4 KiB   | NS16550-compatible serial port           |
-| CLINT  | `0x0200_0000` | 64 KiB  | Core-Local Interruptor (timer/interrupt) |
-| RAM    | `0x8000_0000` | 32 MiB  | General-purpose DRAM                     |
-
-### UART (`0x1000_0000`)
-
-| Register | Offset | Behaviour                                      |
-|----------|--------|------------------------------------------------|
-| THR/RBR  | `+0`   | Write: byte forwarded to stdout. Read: `0x00`. |
-| LSR      | `+5`   | Always returns `0x20` (THRE set, TX ready).    |
-
-### CLINT (`0x0200_0000`)
-
-| Register    | Address        | Description                           |
-|-------------|----------------|---------------------------------------|
-| `mtime` lo  | `0x0200_BFF8`  | Low 32 bits of the 64-bit timer       |
-| `mtime` hi  | `0x0200_BFFC`  | High 32 bits of the 64-bit timer      |
-| `mtimecmp` lo | `0x0200_4000` | Low 32 bits of the compare register  |
-| `mtimecmp` hi | `0x0200_4004` | High 32 bits of the compare register |
-
-`mtime` increments by one per instruction step. A machine timer interrupt is raised whenever `mtime >= mtimecmp` (and `mtimecmp != 0`), subject to `mstatus.MIE` and `mie.MTIE`.
-
----
-
-## Supported `ecall` Numbers
-
-| `a7` (`x17`) | Behaviour                                          |
-|--------------|----------------------------------------------------|
-| `0`          | Environment call trap (cause 11)                   |
-| `93`         | Terminate emulation; exit code taken from `a0`     |
-
----
-
-## Requirements
-
-- [Rust](https://rustup.rs/) (stable toolchain, 2021 edition or later)
-
-No other dependencies are required.
-
----
-
-## Building
-
-```sh
-git clone https://github.com/HernaniSamuel/riscv-emulator.git
+```bash
+git clone https://github.com/HernaniSamuel/riscv-emulator
 cd riscv-emulator
 cargo build --release
 ```
 
-The compiled binary will be at `target/release/riscv-emulator`.
+### Run Linux
+
+```bash
+cargo run --release -- -f operational-systems/Image
+```
+
+### Run a bare-metal ELF
+
+```bash
+cargo run --release -- -e operational-systems/freertos.elf
+```
 
 ---
 
 ## Usage
 
-```sh
-cargo run --release -- <path/to/firmware.elf>
+```
+riscv-emulator [OPTIONS] <--file <FILE> | --elf <FILE>>
+
+Image options:
+  -f, --file <FILE>       Raw Linux kernel image
+  -e, --elf  <FILE>       RV32 bare-metal or FreeRTOS ELF
+
+Linux options:
+  -k, --cmdline <CMDLINE> Kernel command line
+  -b, --dtb <FILE>        External DTB file, or 'disable'
+
+Execution options:
+  -m, --ram <BYTES>       RAM size in bytes  [default: 67108864 (64 MB)]
+  -c, --count <N>         Instruction limit  [default: unlimited]
+  -t, --time-divisor <N>  Slow down the emulated CPU  [default: 1]
+  -l, --lock-time         Lock time base to instruction counter
+  -p, --no-sleep          Disable WFI sleep (maximum throughput)
+  -s, --single-step       Print full register state after each instruction
+  -d, --fault-halt        Halt immediately on any fault
+
+Analysis:
+      --disasm            Disassemble ELF and exit (requires -e)
+      --trace <FILE>      Write compact execution trace to file
 ```
 
-Or with the pre-built binary:
+### Examples
 
-```sh
-./target/release/riscv-emulator path/to/firmware.elf
+```bash
+# Boot Linux with a custom kernel command line
+./riscv-emulator -f Image -k "console=ttyS0 loglevel=8"
+
+# Disassemble a FreeRTOS binary
+./riscv-emulator --disasm -e freertos.elf
+
+# Trace the first 50 000 instructions to a file
+./riscv-emulator -e freertos.elf --trace trace.txt -c 50000
+
+# Single-step through the first 20 instructions
+./riscv-emulator -e freertos.elf -s -c 20
 ```
 
-### Example output
+### Trace format
+
+Each line of a `--trace` file records one instruction and the registers it modified:
 
 ```
-segment: vaddr=0x80000000 filesz=4096 memsz=8192
-Starting emulation at 0x80000000
-Hello from FreeRTOS on RISC-V!
-Exit code: 0
+80000000  02000117  auipc   sp, 0x2000                    sp=82000000
+80000004  00010113  mv      sp, sp
+80000014  510010ef  jal     ra, <main>                    ra=80000018
+80001524  ff010113  addi    sp, sp, -16                   sp=81fffff0
+```
+
+The format is fixed-column and easy to parse with standard tools:
+
+```python
+for line in open("trace.txt"):
+    parts = line.split()
+    pc, ir, *rest = parts
+    changes = [p for p in rest if "=" in p]
 ```
 
 ---
 
-## Running FreeRTOS
+## WebAssembly
 
-1. Clone the FreeRTOS test image repository and follow its build instructions to produce an ELF binary:
+Build for the browser with [wasm-pack](https://rustwasm.github.io/wasm-pack/):
 
-```sh
-git clone https://github.com/HernaniSamuel/freertos-riscv-test.git
-cd freertos-riscv-test
-# follow the build instructions in that repo to produce firmware.elf
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-pack
+wasm-pack build --target web --out-dir www/pkg
 ```
 
-2. Pass the resulting ELF to the emulator:
+The kernel image is embedded at compile time with `include_bytes!`, so no server-side file I/O is needed. See [`src/wasm.rs`](src/wasm.rs) and the [API docs](https://hernanisamuel.github.io/riscv-emulator/riscv_emulator/wasm/index.html) for the JavaScript interface.
 
-```sh
-cargo run --release -- ../freertos-riscv-test/firmware.elf
+---
+
+## Memory map
+
+| Address | Peripheral |
+|---------|-----------|
+| `0x8000_0000` | RAM base (default 64 MB) |
+| `0x1000_0000` | UART 16550 TX/RX |
+| `0x1000_0005` | UART LSR |
+| `0x1100_4000` | CLINT `mtimecmp` low |
+| `0x1100_4004` | CLINT `mtimecmp` high |
+| `0x1100_BFF8` | CLINT `mtime` low (read-only) |
+| `0x1100_BFFC` | CLINT `mtime` high (read-only) |
+| `0x1110_0000` | SYSCON (`0x5555` = poweroff, `0x7777` = restart) |
+
+---
+
+## Project structure
+
+```
+src/
+├── lib.rs        Entry point — module declarations and crate-level docs
+├── cpu.rs        CpuState, StepResult, Trap, CSR addresses
+├── emulator.rs   Execution loop, image loading, single-step, trace
+├── mmio.rs       UART, CLINT, SYSCON handlers; RAM load/store helpers
+├── platform.rs   Platform trait + POSIX and Windows implementations
+├── elf.rs        ELF32 parser and symbol table
+├── disasm.rs     RV32IMA disassembler
+├── wasm.rs       WebAssembly bindings (wasm32 only)
+├── dtb.rs        Embedded default device tree blob
+└── main.rs       CLI (clap)
 ```
 
-The emulator will boot FreeRTOS, which will drive the task scheduler via CLINT timer interrupts.
-
 ---
 
-## Architecture
+## Credits
 
-The emulator is structured around a single `CPU` struct that encodes the complete processor state:
+This project stands on the shoulders of prior work:
 
-| Field            | Description                                              |
-|------------------|----------------------------------------------------------|
-| `regs[32]`       | General-purpose integer registers (`x0`–`x31`)           |
-| `pc`             | Program counter                                          |
-| `memory`         | Flat DRAM backing store (32 MiB by default)              |
-| `csr[4096]`      | Full CSR file, indexed by 12-bit address                 |
-| `mtime`          | 64-bit CLINT timer counter                               |
-| `mtimecmp`       | 64-bit CLINT timer compare register                      |
-| `running`        | Indicates whether the emulator is currently executing    |
-| `exit_code`      | Program termination status returned on exit              |
-| `timer_pending`  | Latched machine timer interrupt flag                     |
+- **[mini-rv32ima](https://github.com/cnlohr/mini-rv32ima)** by [CNLohr](https://github.com/cnlohr) — the original C implementation and the source of the Linux kernel image (`operational-systems/Image`). Licensed under BSD/MIT/CC0.
 
-The execution model follows a strict **fetch → decode → execute** pipeline via `CPU::step`. Before every fetch, pending timer interrupts are checked so that an interrupt can preempt any instruction boundary — the same behaviour required by the FreeRTOS tick handler.
+- **[riscv-emulator-linux](https://github.com/HernaniSamuel/riscv-emulator-linux)** — a fork of mini-rv32ima that was refactored and used as the C reference for this Rust port.
 
-Memory-mapped peripheral dispatch happens inside `read_u8`/`read_u16`/`read_u32` and the corresponding write methods, in priority order: UART → CLINT → RAM → unmapped (silent zero / discard).
-
----
-
-## ELF Loader
-
-`read_elf` parses a raw byte slice as an ELF32 little-endian RISC-V binary. It validates the magic, class, endianness, and machine fields before iterating the program header table. Only `PT_LOAD` segments are processed; each is copied into emulated RAM with BSS zero-fill. The loader uses `unsafe` pointer casts to `#[repr(C)]` header structs, justified by explicit length checks performed before every cast.
-
----
-
-## Limitations
-
-- **No floating-point** — RV32F/D/Zfinx are not implemented.
-- **No compressed instructions** — RV32C is not supported; the ELF must be compiled without the `C` extension.
-- **No virtual memory** — only machine mode is emulated; there is no MMU or S/U-mode support.
-- **No serial input** — UART RX always returns `0`; interactive console applications are not supported.
-- **Single-core** — no multiprocessor or SMP support.
+- **[freertos-riscv-test](https://github.com/HernaniSamuel/freertos-riscv-test)** — the FreeRTOS test suite compiled to `operational-systems/freertos.elf`.
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT

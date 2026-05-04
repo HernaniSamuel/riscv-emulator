@@ -92,7 +92,7 @@ jobs:
         run: touch target/doc/.nojekyll
 
       - name: Add index redirect
-        run: echo '<meta http-equiv="refresh" content="0; url=riscv/index.html">' > target/doc/index.html
+        run: echo '<meta http-equiv="refresh" content="0; url=riscv_emulator/index.html">' > target/doc/index.html
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
